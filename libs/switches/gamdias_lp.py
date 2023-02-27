@@ -23,6 +23,7 @@ conf = {
     "pin_diode_vertical":-5.2,
     "pin_clean_vertical": -5,
     "pin_to_center_horizontal":-4.7,
+    "pin_contact_height": 3,
     "switch_body_x": 14.5,
     "switch_body_y": 14.5,
     "switch_body_height": 2,
@@ -55,7 +56,7 @@ switch_pin_holes =  back(conf['pin_clean_vertical'])(right(conf['pin_to_center_h
 switch_body_lock =   down(conf['switch_body_height']/2) (cube([conf['switch_body_x'], conf['switch_body_y'], conf['switch_body_height']], center=True)) 
 switch_body_lock +=  down(conf['switch_body_height'] + conf['switch_body_wedge_height']/2)(cube([conf['switch_body_wedge_edge'], conf['switch_body_wedge_edge'], conf['switch_body_wedge_height']], center=True))
 
-switch_body = up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock)
+switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock))
 
 
 # switch_body_real = up(conf['switch_sizes_height']/2)(cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True)) - switch_body
