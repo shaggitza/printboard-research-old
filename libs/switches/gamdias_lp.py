@@ -23,7 +23,7 @@ conf = {
     "pin_diode_vertical":-5.2,
     "pin_clean_vertical": -5,
     "pin_to_center_horizontal":-4.7,
-    "pin_contact_height": 3,
+    "pin_contact_height": 2.6,
     "switch_body_x": 14.5,
     "switch_body_y": 14.5,
     "switch_body_height": 2,
