@@ -38,15 +38,16 @@ layout = {
             "offset": (0, 0),
             "keys": [[x]*5]*3,
             "rows_angle": None,
-            "columns_stagger": [0, 10, 10, 5, 0]
+            "columns_angle":[0, 0, 5, 10, 15],
+            "columns_stagger": [0, 5, 10, 10, 0]
         },
         "thumb": {
             "keys":[[x]*3]*1,
-            "offset": (-60, 20),
-            # "column_angle":[-45, 15, 15],
-            "rotation_angle": 30,
+            "offset": (-30, 50),
+            "columns_angle":[5, 10, 15],
+            "rotation_angle": 50,
             "columns_stagger":[0, 5, 0],
-            "padding_keys": [5, 0, 0, 0, 0]
+            "padding_keys": [5]
         }
     },
     "switch": switch,

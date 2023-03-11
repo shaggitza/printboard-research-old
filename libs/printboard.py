@@ -18,19 +18,53 @@ SEGMENTS = 50
 
 def create_keyboard(config):
     parts = []
-    # parts.append({
-    #     "name": "switch",
-    #     "shape": config['switch'].switch_body
-    # })
-    matrix, matrix_data =  build_matrix(config, thumb_cluster=config['matrixes'].get("thumb", None))
-    thumb_tubes = union()()
-    if config['matrixes'].get("thumb", None):
-        thumb_matrix_rotated = rotate_matrix(config, matrix_data['thumb_matrix_data'])
-    merged_matrix = merge_matrix(main=matrix_data, thumb=thumb_matrix_rotated)
-    tubes = build_matrix_tubes(config, merged_matrix)
-    # thumb_tubes = build_matrix_tubes(config, matrix_rotated)
-    parts.append({"name": "matrix", "shape": matrix+tubes+thumb_tubes})
+    build = union()()
+    matrixes  = {}
+    offset_v = 0
+    for matrix_name in config['matrixes']:
+        matrixes[matrix_name] =  plan_matrix(config, matrix_name=matrix_name)
+        matrixes[matrix_name] = fix_rotation_matrix_data(matrixes[matrix_name], config)
+        build += draw_matrix(matrixes[matrix_name], config)
+        pprint(matrixes[matrix_name])
+        size_x, size_y = matrixes[matrix_name]['sizes']
+        offset_v += size_y
+    parts.append({"name": "matrix", "shape": build})
     return parts
+def draw_matrix(matrix_data, config):
+    ret = union()()
+    for switch in matrix_data['switches']:
+        ret += back(switch['y'])(
+                right(switch['x'])(
+                    rotate([0, 0, switch['c_angle']])(
+                        switch['switch'].switch_body
+                    )
+                )
+            )
+    return ret
+def fix_rotation_matrix_data(matrix_data, config):
+    max_x= max_y = 0
+    matrix_config = matrix_data['matrix_config']
+    real_matrix = {}
+    for switch in matrix_data['switches']:
+        if switch['row'] not in real_matrix:
+            real_matrix[switch['row']] = {}
+        real_matrix[switch['row']][switch['column']] = switch
+    for switch in matrix_data['switches']:
+        offset_y = offset_x = 0
+        if switch['c_angle'] != 0:
+            lowest_row = max(real_matrix.keys())
+            lowest_switch = real_matrix[lowest_row] [switch['column']]
+            vertical_leg = (lowest_switch['y'] -  switch['y'])
+            if vertical_leg != 0:
+                angle_radians = math.radians(-int(switch['c_angle']))
+                offset_x = -vertical_leg * math.sin(angle_radians)
+        switch['y'] += offset_y
+        switch['x'] += offset_x
+        switch['c_angle'] = -switch['c_angle']
+        max_x = max(max_x, switch['x'])
+        max_y = max(max_y, switch['y'])
+    matrix_data['sizes'] = (max_x, max_y)
+    return matrix_data
 def merge_matrix(**args):
     new_matrix = {"pin_tube_locations": {}}
     for matrix_name in args:
@@ -40,42 +74,32 @@ def merge_matrix(**args):
             if tube not in new_matrix["pin_tube_locations"]:
                 new_matrix["pin_tube_locations"][tube] = []
             new_matrix["pin_tube_locations"][tube] += matrix["pin_tube_locations"][tube]
-    print(new_matrix)
     return new_matrix
-    # print(args)
-def rotate_matrix(config, matrix_data):
-    new_pin_tube_locations = {}
-    for tube in matrix_data['pin_tube_locations']:
-        for point in matrix_data['pin_tube_locations'][tube]:
-            theta = math.radians(config['matrixes']['thumb'].get('rotation_angle'))
-            rot_z = np.array([
-                [math.cos(theta), -math.sin(theta), 0],
-                [math.sin(theta), math.cos(theta), 0],
-                [0, 0, 1]
-            ])
-            v = np.array(point).reshape((3, 1))
-            v_rot = rot_z @ v
-            x2, y2, z2 = v_rot.flatten()
-            new_point = (x2, y2, z2)
-            if tube not in new_pin_tube_locations:
-                new_pin_tube_locations[tube] = []
-            new_pin_tube_locations[tube].append(new_point)
-    matrix_data['pin_tube_locations'] = new_pin_tube_locations
-    return matrix_data
-
-def build_matrix_tubes(config, matrix_data):
-    tubes = union()()
-    circle_ext = circle_points(1.7/2)
-    for tube in matrix_data['pin_tube_locations'].values():
-        points = []
-        rounded_tube = make_round_path(tube)
-        # rounded_tube = tube
-        pprint([rounded_tube, tube])
-        print("-"*8)
-        for point in rounded_tube:
-            points.append(Point3(*point))
-        tubes += extrude_along_path(circle_ext, points)
-    return tubes
+def rotate_point(point, angle):
+    theta = angle
+    rot_z = np.array([
+        [math.cos(theta), -math.sin(theta), 0],
+        [math.sin(theta), math.cos(theta), 0],
+        [0, 0, 1]
+    ])
+    v = np.array(point).reshape((3, 1))
+    v_rot = rot_z @ v
+    x2, y2, z2 = v_rot.flatten()
+    new_point = (x2, y2, z2)
+    return new_point
+# def build_matrix_tubes(config, matrix_data):
+#     tubes = union()()
+#     circle_ext = circle_points(1.7/2)
+#     for tube in matrix_data['pin_tube_locations'].values():
+#         points = []
+#         rounded_tube = make_round_path(tube)
+#         # rounded_tube = tube
+#         pprint([rounded_tube, tube])
+#         print("-"*8)
+#         for point in rounded_tube:
+#             points.append(Point3(*point))
+#         tubes += extrude_along_path(circle_ext, points)
+#     return tubes
 
 
 import numpy as np
@@ -117,84 +141,82 @@ def make_round_path(points):
     new_points = [(new_x[i], new_y[i], new_z[i]) for i in range(num_new_points)]
     
     return new_points
-def circle_points(rad: float = SHAPE_RAD, num_points: int = SEGMENTS) -> List[Point2]:
-    angles = frange(0, tau, num_steps=num_points, include_end=True)
-    points = list([Point2(rad*cos(a), rad*sin(a)) for a in angles])
-    return points
 
 
-def build_matrix(config, matrix_keys='main', thumb_cluster=None, offset_y_thumb=0):
-    matrix = union()()
+
+def plan_matrix(config, matrix_name='main', thumb_cluster=None, offset_y_thumb=0):
+    # Initialize matrix data dictionary
     matrix_data = {
-        "pin_diodes_locations":{}, 
-        "pin_tube_locations":{}, 
+        "pin_diodes_locations": {},
+        "pin_tube_locations": {},
         "switches": []
     }
+    
+    # Initialize counters and offsets
+    matrix_config =  config['matrixes'][matrix_name]
+    matrix_data['matrix_config'] = matrix_config
     right_counter = 0 
     down_counter = 0
     last_position_x_offset = 0
     last_position_y_offset = {}
     last_points = {}
-    offset_x, offset_y = config['matrixes'][matrix_keys]['offset']
-    for row_elem in config['matrixes'][matrix_keys]['keys']:
-        for elem in row_elem:
-            if elem in config:
-                move_x = last_position_x_offset + offset_x + config[elem].conf['switch_sizes_x']/2
-                move_y = last_position_y_offset.get(right_counter,0)+ offset_y_thumb+ offset_y + config[elem].conf['switch_sizes_y']/2
-                offset_c = 0
-                if config['matrixes'][matrix_keys].get('rows_stagger'):
-                    rows_stagger = config['matrixes'][matrix_keys].get('rows_stagger')
-                    move_x = move_x - rows_stagger[down_counter%len(rows_stagger)]
-                if config['matrixes'][matrix_keys].get('columns_stagger'):
-                    columns_stagger  = config['matrixes'][matrix_keys].get('columns_stagger')
-                    offset_c = columns_stagger[right_counter%len(columns_stagger)]
-                    move_y = move_y - columns_stagger[right_counter%len(columns_stagger)]
-                if right_counter not in matrix_data["pin_tube_locations"]:
-                    matrix_data["pin_tube_locations"][right_counter] = []
-                matrix_data["pin_tube_locations"][right_counter].append((  (move_x+config[elem].conf['pin_to_center_horizontal']), -(move_y -config[elem].conf['pin_clean_vertical']), - (config[elem].conf['pin_contact_height'] + config[elem].conf['switch_body_height'] + config[elem].conf['switch_body_wedge_height']) ))
-                # matrix_data["pin_tube_locations"][right_counter].insert(0, (  (move_x+config[elem].conf['pin_to_center_horizontal']), offset_c, - (config[elem].conf['pin_contact_height'] + config[elem].conf['switch_body_height'] + config[elem].conf['switch_body_wedge_height']) ))
-                if right_counter not in last_points:
-                    last_points[right_counter] = move_x+config[elem].conf['pin_to_center_horizontal']
+    offset_x, offset_y = matrix_config['offset']
+    max_y = max_x = 0
+    # Loop through each element in the matrix
+    for row in matrix_config['keys']:
+        for element in row:
+            # If the element exists in the configuration file
+            if element in config:
+                # Calculate the x and y position of the switch
+                move_x = last_position_x_offset + offset_x + config[element].conf['switch_sizes_x'] / 2
+                move_y = last_position_y_offset.get(right_counter, 0) + offset_y_thumb + offset_y + config[element].conf['switch_sizes_y'] / 2
+                c_angle = 0
+                r_angle = 0
+                if matrix_config.get('columns_angle', False):
+                    c_angle = matrix_config.get('columns_angle', [])[right_counter % len(matrix_config['columns_angle'])]
+                if matrix_config.get('rows_angle', False):
+                    r_angle = matrix_config.get('rows_angle', [])[down_counter % len(matrix_config['rows_angle'])]
+                # Apply row and column staggering if specified
+                if 'rows_stagger' in matrix_config:
+                    stagger = matrix_config.get('rows_stagger', [])[down_counter % len(matrix_config['rows_stagger'])]
+                    move_x -= stagger
+                if 'columns_stagger' in matrix_config:
+                    stagger = matrix_config.get('columns_stagger', [])[right_counter % len(matrix_config['columns_stagger'])]
+                    move_y -= stagger
+                
+                # Add the switch to the matrix data dictionary
                 matrix_data['switches'].append({
+                    "switch": config[element],
                     "column": right_counter,
                     "row": down_counter,
                     "x": move_x,
-                    "y": move_y
+                    "y": move_y,
+                    "c_angle": c_angle,
+                    "r_angle": r_angle
                 })
-                switch_with_location = back(move_y)(
-                            right(move_x )(
-                                config[elem].switch_body
-                            )
-                        )
-                last_position_x_offset += config[elem].conf['switch_sizes_x']
-                if config['matrixes'][matrix_keys].get('padding_keys'):
-                    paddings_list= config['matrixes'][matrix_keys]['padding_keys']
-                    padding_key = paddings_list[right_counter%len(paddings_list)]
-                    last_position_x_offset += padding_key
+                max_x = max(max_x, move_x)
+                max_y = max(max_y, move_y)
+                # Update the position offsets for the next element
+                last_position_x_offset += config[element].conf['switch_sizes_x']
+                if 'padding_keys' in matrix_config:
+                    padding = matrix_config['padding_keys'][right_counter % len(matrix_config['padding_keys'])]
+                    last_position_x_offset += padding
                 if right_counter not in last_position_y_offset:
                     last_position_y_offset[right_counter] = 0
-                last_position_y_offset[right_counter] +=  config[elem].conf['switch_sizes_y']
-
-                matrix += switch_with_location
+                last_position_y_offset[right_counter] += config[element].conf['switch_sizes_y']
             else:
-                print("{} does not exist ({},{})".format(elem, right_counter, down_counter))
-                exit()
+                # If the element does not exist in the configuration file, raise an exception
+                raise Exception(f"{element} does not exist ({right_counter},{down_counter})")
+            
+            # Increment counters
             right_counter += 1
         last_position_x_offset = 0
         down_counter += 1
         right_counter = 0
-    # for right_counter in last_position_y_offset:
-    #     matrix_data["pin_tube_locations"][right_counter].append((  last_points[right_counter], -(last_position_y_offset[right_counter]), - (config[elem].conf['pin_contact_height'] + config[elem].conf['switch_body_height'] + config[elem].conf['switch_body_wedge_height']) ))
-    if config['matrixes'][matrix_keys].get('rotation_angle'):
-        matrix = rotate([0, 0,config['matrixes'][matrix_keys].get('rotation_angle')])(matrix)
-    if thumb_cluster:
-        thumb_matrix, thumb_matrix_data = build_matrix(config, matrix_keys="thumb", offset_y_thumb=max(last_position_y_offset.values()))
-        # thumb_matrix = thumb_matrix
+    matrix_data['sizes'] = (max_x, max_y)
+    # Return the matrix data dictionary
+    return matrix_data
 
-        matrix += thumb_matrix
-        matrix_data['thumb_matrix_data']  = thumb_matrix_data
-        # return (thumb_matrix, thumb_cluster)
-    return (matrix, matrix_data)
 
 def empty_sw(switch, y=None, x=None, body=None):
     empty_switch = fake_sw()
@@ -211,3 +233,8 @@ def empty_sw(switch, y=None, x=None, body=None):
 class fake_sw():
     conf = {}
     switch_body = union()()
+
+def circle_points(rad: float = SHAPE_RAD, num_points: int = SEGMENTS) -> List[Point2]:
+    angles = frange(0, tau, num_steps=num_points, include_end=True)
+    points = list([Point2(rad*cos(a), rad*sin(a)) for a in angles])
+    return points
