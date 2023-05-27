@@ -30,6 +30,7 @@ sixty_five_percent = [
     [lctrl] + [x] * 3+ [spc] + [x] + [rctrl] + [x] * 3,
 ]
 
+
 layout = {
     "name": "prototype",
     "controller_placement": ("left", "top"),
@@ -37,15 +38,16 @@ layout = {
         "main": {
             "offset": (0, 0),
             "keys": [[x]*5]*3,
+            # "keys": sixty_five_percent,
             "rows_angle": None,
             "columns_angle":[0, 0, 5, 10, 15],
             "columns_stagger": [0, 5, 10, 10, 0]
         },
         "thumb": {
             "keys":[[x]*3]*1,
-            "offset": (-30, 50),
-            "columns_angle":[5, 10, 15],
-            "rotation_angle": 50,
+            "offset": (-50, 70),
+            # "columns_angle":[5, 10, 15],
+            # "rotation_angle": 50,
             "columns_stagger":[0, 5, 0],
             "padding_keys": [5]
         }
@@ -60,8 +62,8 @@ for i in range(0, 7):
         total_i = i+num
         if int(total_i) == total_i:
             total_i = int(total_i)
-        layout["{}u".format(total_i)] = printboard.empty_sw(switch, body=switch.switch_body, x=18.5*total_i)
-pprint(layout)
+        layout["{}u".format(total_i)] = printboard.empty_sw(switch, body=switch.switch_body, pins=switch.pins, x=18.5*total_i)
+# pprint(layout)
 
 
 

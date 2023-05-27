@@ -34,6 +34,28 @@ conf = {
     "switch_sizes_height":8
 }
 
+pins = [
+    {
+        "name":"column",
+        "dist_to_center": {
+            "x": conf['pin_to_center_horizontal'],
+            "y": -conf['pin_clean_vertical'],
+            "z": conf['pin_contact_height'] + conf['switch_body_height'] + conf['switch_body_wedge_height']
+        },
+        "connection": "matrix"
+    },
+    {
+        "name": "row",
+        "dist_to_center": {
+            "x": 0,
+            "y": -conf['pin_diode_vertical'],
+            "z": conf['pin_contact_height'] + conf['switch_body_height'] + conf['switch_body_wedge_height']
+
+        },
+        "connection": "matrix"
+    }
+]
+
 pin_coords = [conf['pin_to_center_horizontal'], conf['pin_clean_vertical']]
 pin_diode_coords  = [0, conf['pin_diode_vertical']]
 

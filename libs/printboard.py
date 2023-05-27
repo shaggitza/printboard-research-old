@@ -9,6 +9,7 @@ import math
 import numpy as np
 from math import acos
 from solid.splines import bezier_polygon, bezier_points
+import networkx as nx
 
 from scipy.interpolate import CubicSpline
 
@@ -24,10 +25,21 @@ def create_keyboard(config):
     for matrix_name in config['matrixes']:
         matrixes[matrix_name] =  plan_matrix(config, matrix_name=matrix_name)
         matrixes[matrix_name] = fix_rotation_matrix_data(matrixes[matrix_name], config)
+        # pprint(matrixes[matrix_name])
         build += draw_matrix(matrixes[matrix_name], config)
-        pprint(matrixes[matrix_name])
         size_x, size_y = matrixes[matrix_name]['sizes']
         offset_v += size_y
+    #this should generate the paths to the controller pins, as per the data in the controller class, this should not do the controller jack plug
+    # - generate list of points of contact with all switches pins
+    # - arrange pins in a matrix based on their position, nearest pin for query so tha tthe matrix looks at least sane if not fully working
+    # - should return only points for the tubes, not other type of data, no 3d modelling here, just 2d stuff and some fake contact points to keep the tube to not hit into the other stuff  
+    # 
+    tubes = plan_tubes(config, matrixes)
+    # tubes = amplify_tubes_curves(tubes)
+    tubes = draw_tubes(tubes, config)
+    tubes = rotate([180, 0, 0])(tubes)
+    # controller_shield = make_controller_points(config, controller_contacts) 
+    build += tubes
     parts.append({"name": "matrix", "shape": build})
     return parts
 def draw_matrix(matrix_data, config):
@@ -41,6 +53,197 @@ def draw_matrix(matrix_data, config):
                 )
             )
     return ret
+def draw_tubes(tubes, config):
+    ret = union()()
+    for tube in tubes:
+        ret += build_matrix_tubes(config, tube)
+    return ret
+def plan_tubes(config, matrixes):
+    points = extract_points(matrixes)
+    rows, columns = arrange_points_in_matrix(points['matrix'])
+    # rows, columns = arrange_points_in_matrix_old(points['matrix'])
+    rounded_points = []
+    for column_points in columns:
+        round_column_points = make_round_path(column_points)
+        rounded_points.append(round_column_points)
+    for row_points in rows:
+        round_row_points = make_round_path(row_points)
+        rounded_points.append(round_row_points)
+    return rounded_points
+
+def arrange_points_in_matrix(points_list):
+    def arrange_by_distance(points, key_filter, unconnected_points=None):
+        if unconnected_points is None:
+            unconnected_points = []
+        next_point = {}
+        location_map = {}
+        for point in points:
+            location_map[point['location']] = point
+            if point['location'] in next_point:
+                continue
+            point_x, point_y, point_z = point['location']
+            points_map = {}
+            for other_point in points:
+                if other_point['location'] in next_point.values():
+                    continue
+                other_point_x, other_point_y, other_point_z = other_point['location']
+                if key_filter(point, other_point):
+                    distance = ((other_point_x - point_x) ** 2 + (other_point_y - point_y) ** 2) ** 0.5
+                    if distance not in points_map:
+                        points_map[distance] = []
+                    points_map[distance].append(other_point)
+            if len(points_map) > 0:
+                best_distance = min(points_map.keys())
+                chosen_point = points_map[best_distance][0]
+                next_point[point['location']] = chosen_point['location']
+            else:
+                unconnected_points.append(point)
+        return next_point
+
+    rows = [point for point in points_list if point['name'] in ['row', 'rows']]
+    columns = [point for point in points_list if point['name'] in ['column', 'columns']]
+
+    column_filter = lambda point, other_point: other_point['row'] < point['row']
+    row_filter = lambda point, other_point: other_point['row'] == point['row'] and other_point != point
+
+    unconnected_points = []
+    next_column_point = arrange_by_distance(columns, column_filter, unconnected_points)
+    next_row_point = arrange_by_distance(rows, row_filter, unconnected_points)
+
+    # Connect unconnected points
+    connected_points = set()
+    for unconnected_point in unconnected_points:
+        if unconnected_point['location'] not in connected_points:
+            connected_points.add(unconnected_point['location'])
+            if unconnected_point['name'] in ['row', 'rows']:
+                next_row_point.update(arrange_by_distance([unconnected_point], row_filter))
+            elif unconnected_point['name'] in ['column', 'columns']:
+                next_column_point.update(arrange_by_distance([unconnected_point], column_filter))
+
+    def build_paths(next_point):
+        start_points = set(next_point.keys()) - set(next_point.values())
+        paths = []
+        for start_point in start_points:
+            path = []
+            while start_point:
+                path.append(start_point)
+                start_point = next_point.get(start_point, False)
+            paths.append(path)
+        return paths
+
+    real_matrix_columns = build_paths(next_column_point)
+    real_matrix_rows = build_paths(next_row_point)
+
+    return real_matrix_rows, real_matrix_columns
+
+
+
+    
+
+def arrange_points_in_matrix_old(points_list):
+    """
+    from my point of view, we don't realy have a way to rearrange rows, only columns, based on distance between points.., so, i would hope for someone to find a better way ...
+    """
+    rows = []
+    columns = []
+    for point in points_list:
+        if point['name'] in ['row', 'rows']:
+            rows.append(point)
+        elif point['name'] in ['column', 'columns']:
+            columns.append(point)
+
+    next_point = {}
+    location_map = {}
+    for match_point in columns:
+        location_map[match_point['location']] = match_point
+        if match_point['location'] in next_point:
+            continue
+        match_point_x,match_point_y, match_point_z = match_point['location']
+        points_map = {}
+        for matching_point in columns:
+            if matching_point['location'] in next_point.values():
+                continue
+            matching_point_x,matching_point_y, matching_point_z = matching_point['location']
+            if matching_point['row'] < match_point['row']:
+                distance = (( matching_point_x- match_point_x)**2 + (matching_point_y - match_point_y)**2)**0.5
+                if distance not in points_map:
+                    points_map[distance] = []
+                points_map[distance].append(matching_point)
+        if len(points_map) > 0:
+            best_distance = min(points_map.keys())
+            chosen_point = points_map[best_distance][0]
+            print(best_distance, match_point, chosen_point)
+            # chosen_points.append(chosen_point)
+            next_point[match_point['location']] = chosen_point['location']
+    start_points = next_point.keys() - next_point.values()
+    real_matrix_columns = []
+    for start_point  in start_points:
+        column_path = []
+        # next_location = 
+        while start_point:
+            column_path.append(start_point)
+            start_point = next_point.get(start_point, False)
+        real_matrix_columns.append(column_path)
+   
+    next_point = {}
+    location_map = {}
+    for match_point in rows:
+        location_map[match_point['location']] = match_point
+        if match_point['location'] in next_point:
+            continue
+        match_point_x,match_point_y, match_point_z = match_point['location']
+        points_map = {}
+        for matching_point in rows:
+            if matching_point['location'] in next_point.values():
+                continue
+            matching_point_x,matching_point_y, matching_point_z = matching_point['location']
+            if matching_point['row'] == match_point['row'] and  matching_point != match_point:
+                distance = (( matching_point_x- match_point_x)**2 + (matching_point_y - match_point_y)**2)**0.5
+                if distance not in points_map:
+                    points_map[distance] = []
+                points_map[distance].append(matching_point)
+        if len(points_map) > 0:
+            best_distance = min(points_map.keys())
+            chosen_point = points_map[best_distance][0]
+            print(best_distance, match_point, chosen_point)
+            # chosen_points.append(chosen_point)
+            next_point[match_point['location']] = chosen_point['location']
+    start_points = next_point.keys() - next_point.values()
+    # pprint(start_point)
+    real_matrix_rows = []
+    for start_point  in start_points:
+        column_path = []
+        # next_location = 
+        while start_point:
+            column_path.append(start_point)
+            start_point = next_point.get(start_point, False)
+        real_matrix_rows.append(column_path)
+   
+
+    return (real_matrix_rows, real_matrix_columns)
+
+def extract_points(matrixes):
+    return_arr = {}
+    for matrix_name in matrixes:
+        for switch in matrixes[matrix_name]['switches']:
+            for pin in switch['switch'].pins:
+                if pin['connection'] not in return_arr:
+                    return_arr[pin['connection']] = []
+                point_x, point_y, point_z = rotate_point((pin['dist_to_center']['x'], pin['dist_to_center']['y'], pin['dist_to_center']['z']), switch['c_angle'])
+                point_x += switch['x']
+                point_y += switch['y']
+                # print(switch['column'], switch['row'])
+                point_obj = {
+                    "name": pin['name'],
+                    "column": switch['column'],
+                    "row": switch['row'],
+                    "switch": switch['switch'],
+                    "location": (point_x, point_y, point_z),
+                }
+                return_arr[pin['connection']].append(point_obj)
+    return return_arr
+    
+
 def fix_rotation_matrix_data(matrix_data, config):
     max_x= max_y = 0
     matrix_config = matrix_data['matrix_config']
@@ -53,8 +256,12 @@ def fix_rotation_matrix_data(matrix_data, config):
         offset_y = offset_x = 0
         if switch['c_angle'] != 0:
             lowest_row = max(real_matrix.keys())
-            lowest_switch = real_matrix[lowest_row] [switch['column']]
-            vertical_leg = (lowest_switch['y'] -  switch['y'])
+            lowest_switch = real_matrix[lowest_row]
+            if switch['column'] in lowest_switch:
+                lowest_switch = lowest_switch[switch['column']]
+                vertical_leg = (lowest_switch['y'] -  switch['y'])
+            else:
+                vertical_leg = 0
             if vertical_leg != 0:
                 angle_radians = math.radians(-int(switch['c_angle']))
                 offset_x = -vertical_leg * math.sin(angle_radians)
@@ -63,13 +270,25 @@ def fix_rotation_matrix_data(matrix_data, config):
         switch['c_angle'] = -switch['c_angle']
         max_x = max(max_x, switch['x'])
         max_y = max(max_y, switch['y'])
+        new_pins =  []
+        for pin_data in switch['switch'].pins:
+            if switch['c_angle'] != 0 : 
+                pin_x, pin_y, pin_z =  (pin_data['dist_to_center']['x'], pin_data['dist_to_center']['y'], pin_data['dist_to_center']['z'])
+                point = rotate_point((pin_x, pin_y, pin_z), switch['c_angle'])
+                new_pin_x, new_pin_y, new_pin_z = point
+                pin_data['dist_to_center']['x'] = new_pin_x
+                pin_data['dist_to_center']['y'] = new_pin_y
+                pin_data['dist_to_center']['z'] = new_pin_z
+                print(-switch['c_angle'], (pin_x, pin_y, pin_z), (new_pin_x, new_pin_y, new_pin_z))
+            new_pins.append(pin_data)
+        switch['switch'].pins = new_pins
     matrix_data['sizes'] = (max_x, max_y)
     return matrix_data
 def merge_matrix(**args):
     new_matrix = {"pin_tube_locations": {}}
     for matrix_name in args:
         matrix = args[matrix_name]
-        print(matrix, matrix_name)
+        # print(matrix, matrix_name)
         for tube in matrix["pin_tube_locations"]:
             if tube not in new_matrix["pin_tube_locations"]:
                 new_matrix["pin_tube_locations"][tube] = []
@@ -87,19 +306,13 @@ def rotate_point(point, angle):
     x2, y2, z2 = v_rot.flatten()
     new_point = (x2, y2, z2)
     return new_point
-# def build_matrix_tubes(config, matrix_data):
-#     tubes = union()()
-#     circle_ext = circle_points(1.7/2)
-#     for tube in matrix_data['pin_tube_locations'].values():
-#         points = []
-#         rounded_tube = make_round_path(tube)
-#         # rounded_tube = tube
-#         pprint([rounded_tube, tube])
-#         print("-"*8)
-#         for point in rounded_tube:
-#             points.append(Point3(*point))
-#         tubes += extrude_along_path(circle_ext, points)
-#     return tubes
+def build_matrix_tubes(config, rounded_tube):
+    circle_ext = circle_points(1.7/2)
+    points = []
+    for point in rounded_tube:
+        points.append(Point3(*point))
+    return extrude_along_path(circle_ext, points)
+    # return tubes
 
 
 import numpy as np
@@ -147,8 +360,6 @@ def make_round_path(points):
 def plan_matrix(config, matrix_name='main', thumb_cluster=None, offset_y_thumb=0):
     # Initialize matrix data dictionary
     matrix_data = {
-        "pin_diodes_locations": {},
-        "pin_tube_locations": {},
         "switches": []
     }
     
@@ -218,7 +429,7 @@ def plan_matrix(config, matrix_name='main', thumb_cluster=None, offset_y_thumb=0
     return matrix_data
 
 
-def empty_sw(switch, y=None, x=None, body=None):
+def empty_sw(switch, y=None, x=None, body=None, pins=None):
     empty_switch = fake_sw()
     empty_switch.conf = switch.conf.copy()
     if y:
@@ -227,11 +438,14 @@ def empty_sw(switch, y=None, x=None, body=None):
         empty_switch.conf['switch_sizes_x'] = x
     if body:
         empty_switch.switch_body = body
+    if pins:
+        empty_switch.pins = pins
     return empty_switch
 
 
 class fake_sw():
     conf = {}
+    pins = {}
     switch_body = union()()
 
 def circle_points(rad: float = SHAPE_RAD, num_points: int = SEGMENTS) -> List[Point2]:
