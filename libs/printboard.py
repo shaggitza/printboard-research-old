@@ -9,7 +9,6 @@ import math
 import numpy as np
 from math import acos
 from solid.splines import bezier_polygon, bezier_points
-import networkx as nx
 
 from scipy.interpolate import CubicSpline
 
@@ -25,6 +24,8 @@ def create_keyboard(config):
     for matrix_name in config['matrixes']:
         matrixes[matrix_name] =  plan_matrix(config, matrix_name=matrix_name)
         matrixes[matrix_name] = fix_rotation_matrix_data(matrixes[matrix_name], config)
+        # pprint(matrixes[matrix_name])
+        # exit()
         # pprint(matrixes[matrix_name])
         build += draw_matrix(matrixes[matrix_name], config)
         size_x, size_y = matrixes[matrix_name]['sizes']
@@ -60,15 +61,15 @@ def draw_tubes(tubes, config):
     return ret
 def plan_tubes(config, matrixes):
     points = extract_points(matrixes)
-    rows, columns = arrange_points_in_matrix(points['matrix'])
-    # rows, columns = arrange_points_in_matrix_old(points['matrix'])
+    # rows, columns = arrange_points_in_matrix(points['matrix'])
+    rows, columns = arrange_points_in_matrix_old(points['matrix'])
     rounded_points = []
     for column_points in columns:
-        round_column_points = make_round_path(column_points)
-        rounded_points.append(round_column_points)
+        # column_points = make_round_path(column_points)
+        rounded_points.append(column_points)
     for row_points in rows:
-        round_row_points = make_round_path(row_points)
-        rounded_points.append(round_row_points)
+        # row_points = make_round_path(row_points)
+        rounded_points.append(row_points)
     return rounded_points
 
 def arrange_points_in_matrix(points_list):
@@ -135,8 +136,6 @@ def arrange_points_in_matrix(points_list):
     real_matrix_rows = build_paths(next_row_point)
 
     return real_matrix_rows, real_matrix_columns
-
-
 
     
 
@@ -279,7 +278,7 @@ def fix_rotation_matrix_data(matrix_data, config):
                 pin_data['dist_to_center']['x'] = new_pin_x
                 pin_data['dist_to_center']['y'] = new_pin_y
                 pin_data['dist_to_center']['z'] = new_pin_z
-                print(-switch['c_angle'], (pin_x, pin_y, pin_z), (new_pin_x, new_pin_y, new_pin_z))
+                # print(-switch['c_angle'], (pin_x, pin_y, pin_z), (new_pin_x, new_pin_y, new_pin_z))
             new_pins.append(pin_data)
         switch['switch'].pins = new_pins
     matrix_data['sizes'] = (max_x, max_y)

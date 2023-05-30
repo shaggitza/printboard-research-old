@@ -37,20 +37,20 @@ layout = {
     "matrixes": {
         "main": {
             "offset": (0, 0),
-            "keys": [[x]*5]*3,
-            # "keys": sixty_five_percent,
+            # "keys": [[x]*5]*3,
+            "keys": sixty_five_percent,
             "rows_angle": None,
-            "columns_angle":[0, 0, 5, 10, 15],
-            "columns_stagger": [0, 5, 10, 10, 0]
+            # "columns_angle":[0, 0, 5, 10, 15],
+            # "columns_stagger": [0, 5, 10, 10, 0]
         },
-        "thumb": {
-            "keys":[[x]*3]*1,
-            "offset": (-50, 70),
-            # "columns_angle":[5, 10, 15],
-            # "rotation_angle": 50,
-            "columns_stagger":[0, 5, 0],
-            "padding_keys": [5]
-        }
+        # "thumb": {
+        #     "keys":[[x]*3]*1,
+        #     "offset": (-50, 70),
+        #     # "columns_angle":[5, 10, 15],
+        #     "rotation_angle": 50,
+        #     "columns_stagger":[0, 5, 0],
+        #     "padding_keys": [5]
+        # }
     },
     "switch": switch,
     "empty_switch": printboard.empty_sw(switch),
