@@ -9,7 +9,7 @@ import math
 import numpy as np
 from math import acos
 from solid.splines import bezier_polygon, bezier_points
-
+import random
 from scipy.interpolate import CubicSpline
 
 
@@ -61,15 +61,15 @@ def draw_tubes(tubes, config):
     return ret
 def plan_tubes(config, matrixes):
     points = extract_points(matrixes)
-    # rows, columns = arrange_points_in_matrix(points['matrix'])
-    rows, columns = arrange_points_in_matrix_old(points['matrix'])
+    rows, columns = arrange_points_in_matrix(points['matrix'])
+    # rows, columns = arrange_points_in_matrix_old(points['matrix'])
     rounded_points = []
     for column_points in columns:
         # column_points = make_round_path(column_points)
         rounded_points.append(column_points)
-    for row_points in rows:
+    # for row_points in rows:
         # row_points = make_round_path(row_points)
-        rounded_points.append(row_points)
+        # rounded_points.append(row_points)
     return rounded_points
 
 def arrange_points_in_matrix(points_list):
@@ -94,9 +94,21 @@ def arrange_points_in_matrix(points_list):
                         points_map[distance] = []
                     points_map[distance].append(other_point)
             if len(points_map) > 0:
-                best_distance = min(points_map.keys())
-                chosen_point = points_map[best_distance][0]
-                next_point[point['location']] = chosen_point['location']
+                sorted_points_map = sorted(points_map.keys())
+                best_distance = None
+                if len(sorted_points_map) > 2:
+                    distance_between_first_two = sorted_points_map[0] - sorted_points_map[1]
+                    if abs(distance_between_first_two) < sorted_points_map[0]*0.2:
+                        best_distance = random.choice(sorted_points_map[0:2])
+                    else:
+                        best_distance = min(sorted_points_map)
+                if not best_distance:
+                    best_distance = min(points_map.keys())
+                if best_distance > (other_point['switch'].conf['switch_sizes_y']*2):
+                    unconnected_points.append(point)
+                else:
+                    chosen_point = points_map[best_distance][0]
+                    next_point[point['location']] = chosen_point['location']
             else:
                 unconnected_points.append(point)
         return next_point
@@ -137,89 +149,7 @@ def arrange_points_in_matrix(points_list):
 
     return real_matrix_rows, real_matrix_columns
 
-    
 
-def arrange_points_in_matrix_old(points_list):
-    """
-    from my point of view, we don't realy have a way to rearrange rows, only columns, based on distance between points.., so, i would hope for someone to find a better way ...
-    """
-    rows = []
-    columns = []
-    for point in points_list:
-        if point['name'] in ['row', 'rows']:
-            rows.append(point)
-        elif point['name'] in ['column', 'columns']:
-            columns.append(point)
-
-    next_point = {}
-    location_map = {}
-    for match_point in columns:
-        location_map[match_point['location']] = match_point
-        if match_point['location'] in next_point:
-            continue
-        match_point_x,match_point_y, match_point_z = match_point['location']
-        points_map = {}
-        for matching_point in columns:
-            if matching_point['location'] in next_point.values():
-                continue
-            matching_point_x,matching_point_y, matching_point_z = matching_point['location']
-            if matching_point['row'] < match_point['row']:
-                distance = (( matching_point_x- match_point_x)**2 + (matching_point_y - match_point_y)**2)**0.5
-                if distance not in points_map:
-                    points_map[distance] = []
-                points_map[distance].append(matching_point)
-        if len(points_map) > 0:
-            best_distance = min(points_map.keys())
-            chosen_point = points_map[best_distance][0]
-            print(best_distance, match_point, chosen_point)
-            # chosen_points.append(chosen_point)
-            next_point[match_point['location']] = chosen_point['location']
-    start_points = next_point.keys() - next_point.values()
-    real_matrix_columns = []
-    for start_point  in start_points:
-        column_path = []
-        # next_location = 
-        while start_point:
-            column_path.append(start_point)
-            start_point = next_point.get(start_point, False)
-        real_matrix_columns.append(column_path)
-   
-    next_point = {}
-    location_map = {}
-    for match_point in rows:
-        location_map[match_point['location']] = match_point
-        if match_point['location'] in next_point:
-            continue
-        match_point_x,match_point_y, match_point_z = match_point['location']
-        points_map = {}
-        for matching_point in rows:
-            if matching_point['location'] in next_point.values():
-                continue
-            matching_point_x,matching_point_y, matching_point_z = matching_point['location']
-            if matching_point['row'] == match_point['row'] and  matching_point != match_point:
-                distance = (( matching_point_x- match_point_x)**2 + (matching_point_y - match_point_y)**2)**0.5
-                if distance not in points_map:
-                    points_map[distance] = []
-                points_map[distance].append(matching_point)
-        if len(points_map) > 0:
-            best_distance = min(points_map.keys())
-            chosen_point = points_map[best_distance][0]
-            print(best_distance, match_point, chosen_point)
-            # chosen_points.append(chosen_point)
-            next_point[match_point['location']] = chosen_point['location']
-    start_points = next_point.keys() - next_point.values()
-    # pprint(start_point)
-    real_matrix_rows = []
-    for start_point  in start_points:
-        column_path = []
-        # next_location = 
-        while start_point:
-            column_path.append(start_point)
-            start_point = next_point.get(start_point, False)
-        real_matrix_rows.append(column_path)
-   
-
-    return (real_matrix_rows, real_matrix_columns)
 
 def extract_points(matrixes):
     return_arr = {}
