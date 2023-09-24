@@ -59,18 +59,102 @@ def draw_tubes(tubes, config):
     for tube in tubes:
         ret += build_matrix_tubes(config, tube)
     return ret
+
 def plan_tubes(config, matrixes):
     points = extract_points(matrixes)
-    rows, columns = arrange_points_in_matrix(points['matrix'])
+    runs = 100
+    traces = {
+        "rows": [],
+        "columns": []
+    }
+    for i in range(0, runs):
+        rows, columns = arrange_points_in_matrix(points['matrix'])
+        traces['rows'].append(rows)
+        traces['columns'].append(columns)
+    
+    rows = best_traces(traces['rows'])
+    columns = best_traces(traces['columns'])
+
+        # points = round_points(points)
     # rows, columns = arrange_points_in_matrix_old(points['matrix'])
     rounded_points = []
     for column_points in columns:
         # column_points = make_round_path(column_points)
         rounded_points.append(column_points)
-    # for row_points in rows:
+    for row_points in rows:
         # row_points = make_round_path(row_points)
-        # rounded_points.append(row_points)
+        rounded_points.append(row_points)
     return rounded_points
+
+from shapely.geometry import LineString
+
+
+def check_intersection(line1, line2):
+    """Check if two line segments intersect."""
+    l1 = LineString(line1)
+    l2 = LineString(line2)
+    return l1.intersects(l2)
+
+def best_traces(traces):
+    scores = []
+    for trace in traces:
+        scores.append(compute_scores_for_iteration_updated(trace))
+    best_score = 0
+    best_score_index = 0
+    best_score_traces_count = 0
+    for i in range(0, len(scores)):
+        score = sum(scores[i])
+        traces_count = len(scores[i])
+        if score > best_score:
+            best_score = score
+            best_score_index = i
+            best_score_traces_count = traces_count
+        elif score == best_score:
+            if traces_count < best_score_traces_count:
+                best_score = score
+                best_score_index = i
+                best_score_traces_count = traces_count
+    return traces[best_score_index]
+
+def compute_y_score_updated(y):
+    """Compute the score based on the y-coordinate of the start point."""
+    if y == 0:
+        return 1
+    elif y <= 5:
+        return 0.75
+    elif y <= 10:
+        return 0.5
+    elif y <= 15:
+        return 0.25
+    else:
+        return 0
+
+def compute_scores_for_iteration_updated(columns):
+    """Compute scores for an iteration's columns."""
+    scores = []
+    
+    for col in columns:
+        # Determine the start point based on Y-coordinate
+        if col[0][1] < col[-1][1]:
+            start_point_y = col[0][1]
+        else:
+            start_point_y = col[-1][1]
+        
+        # Start Point Y Score
+        y_score = compute_y_score_updated(start_point_y)
+        
+        # Intersection Score
+        intersection_score = 1
+        for other_col in columns:
+            if col != other_col and check_intersection(col, other_col):
+                intersection_score = 0
+                break
+                
+        # Total score for the column
+        total_score = y_score * intersection_score
+        scores.append(total_score)
+        
+    return scores
 
 def arrange_points_in_matrix(points_list):
     def arrange_by_distance(points, key_filter, unconnected_points=None):
@@ -135,6 +219,7 @@ def arrange_points_in_matrix(points_list):
 
     def build_paths(next_point):
         start_points = set(next_point.keys()) - set(next_point.values())
+        pprint(["start_points", start_points])
         paths = []
         for start_point in start_points:
             path = []
@@ -146,6 +231,10 @@ def arrange_points_in_matrix(points_list):
 
     real_matrix_columns = build_paths(next_column_point)
     real_matrix_rows = build_paths(next_row_point)
+    # pprint({
+    #     "real_matrix_columns": next_column_point,
+    #     "real_matrix_rows": next_row_point
+    # })
 
     return real_matrix_rows, real_matrix_columns
 
@@ -169,7 +258,9 @@ def extract_points(matrixes):
                     "switch": switch['switch'],
                     "location": (point_x, point_y, point_z),
                 }
+
                 return_arr[pin['connection']].append(point_obj)
+
     return return_arr
     
 
@@ -256,7 +347,7 @@ def make_round_path(points):
     x = [p[0] for p in points]
     y = [p[1] for p in points]
     z = [p[2] for p in points]
-
+    
     # Calculate the cumulative distance between each pair of points
     cum_dist = [0]
     for i in range(1, len(points)):
