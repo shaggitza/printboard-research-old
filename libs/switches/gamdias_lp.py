@@ -1,8 +1,34 @@
 
+from math import cos, sin
 from solid import *
 from solid.utils import *
 import glob
 SEGMENTS=50
+
+
+def quarter_torus(outer_radius, tube_radius, angle=90):
+    # Define the path (a quarter circle)
+    path = []
+    segments = SEGMENTS
+    for i in range(segments + 1):
+        theta = (angle * pi / 180) * i / segments
+        x = outer_radius * cos(theta)
+        y = outer_radius * sin(theta)
+        path.append([x, y, 0])
+
+    
+
+    # Define the shape to be extruded (a circle)
+    shape = []
+    for i in range(segments + 1):
+        theta = (2 * pi) * i / segments
+        x = tube_radius * cos(theta)
+        y = tube_radius * sin(theta)
+        shape.append([x, y])
+
+    # Extrude the shape along the path
+    return extrude_along_path(shape_pts=shape, path_pts=path)
+
 
 for file_name in glob.glob("openscad-extra/src/*.scad"):
     use(file_name)
@@ -48,10 +74,9 @@ pins = [
     {
         "name": "row",
         "dist_to_center": {
-            "x": 0,
-            "y": -conf['pin_diode_vertical'],
-            "z": conf['pin_contact_height'] + conf['switch_body_height'] + conf['switch_body_wedge_height']
-
+            "x": 5,
+            "y": 8,
+            "z": 3 + conf['pin_contact_height'] + conf['switch_body_height'] + conf['switch_body_wedge_height']+0.6
         },
         "connection": "matrix"
     }
@@ -78,14 +103,36 @@ switch_pin_holes =  back(conf['pin_clean_vertical'])(right(conf['pin_to_center_h
 
 switch_body_lock =   down(conf['switch_body_height']/2) (cube([conf['switch_body_x'], conf['switch_body_y'], conf['switch_body_height']], center=True)) 
 switch_body_lock +=  down(conf['switch_body_height'] + conf['switch_body_wedge_height']/2)(cube([conf['switch_body_wedge_edge'], conf['switch_body_wedge_edge'], conf['switch_body_wedge_height']], center=True))
-diode_slot = cube([20, 1, 1], center=True)
 
+
+arc_diode_hole = quarter_torus(conf['mid_leg_height']/2, 1.7/2)
+arc_diode_end = cylinder(d=1.7, h=1.5, center=True)
+arc_diode_end = rotate([90, 0, 0])(arc_diode_end)
+arc_diode_end = back(0.7)(arc_diode_end)
+arc_diode_end = right(2.17)(arc_diode_end)
+diode_body_hole = cube([8, 4, 4], center=True)
+diode_clearance = cube([16, 2, 4], center=True)
+diode_second_leg_hole = cube([10, 2, 2], center=True)
+diode_second_leg_hole = back(1)(left(5)(down(3)(diode_second_leg_hole)))
+
+diode_slot = arc_diode_hole + arc_diode_end + forward(1.5)(left(4)(diode_body_hole)) +  forward(-1)(left(0)(diode_clearance)) + diode_second_leg_hole
+
+diode_slot = rotate([-90, 180, 0])(diode_slot)
 diode_slot = forward(conf['pin_diode_vertical'])(diode_slot)
+diode_slot = right(2)(diode_slot)
 diode_slot = down(5)(diode_slot)
+diode_slot = down(3)(diode_slot)
+
+
+
+
+
+# scad_render_to_file(diode_slot, 'diode_slot.scad',file_header=f'$fn = {SEGMENTS};')
+
+
+
 
 switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock))+diode_slot
 
-
-
-switch_body_real = up(conf['switch_sizes_height']/2)(cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True)) - switch_body
-scad_render_to_file(switch_body, 'switch_footprint.scad',file_header=f'$fn = {SEGMENTS};') 
+# switch_body_real = up(conf['switch_sizes_height']/2)(cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True)) - switch_body
+# scad_render_to_file(switch_body, 'switch_footprint.scad',file_header=f'$fn = {SEGMENTS};') 
