@@ -36,12 +36,12 @@ layout = {
     "matrixes": {
         "main": {
             "offset": (0, 0),
-            "keys": [[x] *5]*5, 
-            # "keys": sixty_five_percent,
+            # "keys": [[x] *5]*5, 
+            "keys": sixty_five_percent,
             # "rows_angle": None,
             # "columns_angle":[0, 0, 5, 10, 15],
 
-            "columns_stagger": [0, 5, 10, 10, 0]
+            "rows_stagger": [0, 5, 10, 10, 0]
         },
         # "thumb": {
         #     "keys":[[x]*3]*1,

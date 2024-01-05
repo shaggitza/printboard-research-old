@@ -67,15 +67,37 @@ def plan_tubes(config, matrixes):
         "rows": [],
         "columns": []
     }
-    for i in range(0, runs):
+    while   runs > 0:
         rows, columns = arrange_points_in_matrix(points['matrix'])
         traces['rows'].append(rows)
         traces['columns'].append(columns)
+        runs -= 1
+        
+
     
     rows = best_traces(traces['rows'])
     columns = best_traces(traces['columns'])
 
-        # points = round_points(points)
+    rows = rows[0]
+    columns = columns[0]
+    # rows_new = []
+    #getting all columns  to the starting edge (up)
+    columns_new = []
+    for column in columns:
+        starting_point = column[-1]
+        _x, _y, _z  = starting_point
+        column.append((_x, 0, _z))
+        columns_new.append(column)
+    columns = columns_new
+    # same for rows (untested)
+    rows_new = []
+    for row in rows:
+        starting_point = row[-1]
+        _x, _y, _z  = starting_point
+        row.append((0, _y, _z))
+        rows_new.append(row)
+    rows = rows_new
+    # points = round_points(points)
     # rows, columns = arrange_points_in_matrix_old(points['matrix'])
     rounded_points = []
     for column_points in columns:
@@ -96,22 +118,24 @@ def check_intersection(line1, line2):
     return l1.intersects(l2)
 
 def best_traces(traces):
+    traces = traces
     scores = []
     for trace in traces:
-        scores.append(compute_scores_for_iteration_updated(trace))
+        scores.append(compute_scores_for_iteration_updated(trace[0], trace[1]))
     best_score = 0
     best_score_index = 0
     best_score_traces_count = 0
     for i in range(0, len(scores)):
         score = sum(scores[i])
         traces_count = len(scores[i])
-        if score > best_score:
-            best_score = score
+        weight = score/traces_count
+        if weight > best_score:
+            best_score = weight
             best_score_index = i
             best_score_traces_count = traces_count
-        elif score == best_score:
+        elif weight == best_score:
             if traces_count < best_score_traces_count:
-                best_score = score
+                best_score = weight
                 best_score_index = i
                 best_score_traces_count = traces_count
     return traces[best_score_index]
@@ -129,7 +153,7 @@ def compute_y_score_updated(y):
     else:
         return 0
 
-def compute_scores_for_iteration_updated(columns):
+def compute_scores_for_iteration_updated(columns, unconnected):
     """Compute scores for an iteration's columns."""
     scores = []
     
@@ -153,7 +177,10 @@ def compute_scores_for_iteration_updated(columns):
         # Total score for the column
         total_score = y_score * intersection_score
         scores.append(total_score)
-        
+
+    # if unconnected > 0:
+    for i in range(0, unconnected):
+        scores.append(0)
     return scores
 
 def arrange_points_in_matrix(points_list):
@@ -180,7 +207,7 @@ def arrange_points_in_matrix(points_list):
             if len(points_map) > 0:
                 sorted_points_map = sorted(points_map.keys())
                 best_distance = None
-                if len(sorted_points_map) > 2:
+                if len(sorted_points_map) > 1:
                     distance_between_first_two = sorted_points_map[0] - sorted_points_map[1]
                     if abs(distance_between_first_two) < sorted_points_map[0]*0.2:
                         best_distance = random.choice(sorted_points_map[0:2])
@@ -208,18 +235,18 @@ def arrange_points_in_matrix(points_list):
     next_row_point = arrange_by_distance(rows, row_filter, unconnected_points)
 
     # Connect unconnected points
-    connected_points = set()
-    for unconnected_point in unconnected_points:
-        if unconnected_point['location'] not in connected_points:
-            connected_points.add(unconnected_point['location'])
-            if unconnected_point['name'] in ['row', 'rows']:
-                next_row_point.update(arrange_by_distance([unconnected_point], row_filter))
-            elif unconnected_point['name'] in ['column', 'columns']:
-                next_column_point.update(arrange_by_distance([unconnected_point], column_filter))
+    # connected_points = set()
+    # for unconnected_point in unconnected_points:
+    #     if unconnected_point['location'] not in connected_points:
+    #         connected_points.add(unconnected_point['location'])
+    #         if unconnected_point['name'] in ['row', 'rows']:
+    #             next_row_point.update(arrange_by_distance([unconnected_point], row_filter))
+    #         elif unconnected_point['name'] in ['column', 'columns']:
+    #             next_column_point.update(arrange_by_distance([unconnected_point], column_filter))
 
     def build_paths(next_point):
         start_points = set(next_point.keys()) - set(next_point.values())
-        pprint(["start_points", start_points])
+        # pprint(["start_points", start_points])
         paths = []
         for start_point in start_points:
             path = []
@@ -231,12 +258,16 @@ def arrange_points_in_matrix(points_list):
 
     real_matrix_columns = build_paths(next_column_point)
     real_matrix_rows = build_paths(next_row_point)
-    # pprint({
-    #     "real_matrix_columns": next_column_point,
-    #     "real_matrix_rows": next_row_point
-    # })
+    real_unconnected_points = set([unconnected_point['location'] for unconnected_point in unconnected_points]) - set(list(next_row_point.keys())) - set(list(next_column_point.keys())) - set(list(next_row_point.values())) - set(list(next_column_point.values()))
+    real_unconnected_points_rows = [point for point in real_unconnected_points if point in [point['location'] for point in rows]]
+    real_unconnected_points_columns = [point for point in real_unconnected_points if point in [point['location'] for point in columns]]
 
-    return real_matrix_rows, real_matrix_columns
+
+        
+    pprint(["real_unconnected_points_rows", real_unconnected_points_rows])
+    pprint(["real_unconnected_points_columns", real_unconnected_points_columns])
+
+    return [real_matrix_rows, len(real_unconnected_points_rows)], [real_matrix_columns, len(real_unconnected_points_columns)]
 
 
 
