@@ -41,6 +41,14 @@ def create_keyboard(config):
     tubes = rotate([180, 0, 0])(tubes)
     # controller_shield = make_controller_points(config, controller_contacts) 
     build += tubes
+    build = union()()
+
+    best_pins_list = controller_pins(config)
+    # controller = draw_controller(config, controller_config)
+
+    exit()
+    
+    # build = cube([1000, 1000, 1000]) - build
     parts.append({"name": "matrix", "shape": build})
     return parts
 def draw_matrix(matrix_data, config):
@@ -109,6 +117,15 @@ def plan_tubes(config, matrixes):
     return rounded_points
 
 from shapely.geometry import LineString
+
+def controller_pins(config):
+    controller_info  = config['controller']
+    placement = config['placement']
+    pins_list = []
+
+    closest_row = 
+
+
 
 
 def check_intersection(line1, line2):

@@ -133,9 +133,10 @@ diode_slot = down(3)(diode_slot)
 
 
 
-#switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock))
-switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock)) + diode_slot
+switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock))
+# switch_body = rotate([0, 180, 180])(up(conf['switch_body_wedge_height']  +conf['switch_body_height'] )(switch_footprint+switch_pin_holes+switch_body_lock)) + diode_slot
 
 # switch_body += diode_slot
-# switch_body_real = up(conf['switch_sizes_height']/2)(cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True)) - switch_body
+# switch_body = down(conf['switch_sizes_height']/2)(cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True)) - switch_body
+# switch_body = cube([conf['switch_sizes_x'], conf['switch_sizes_y'], conf['switch_sizes_height']], center=True) - switch_body
 # scad_render_to_file(switch_body, 'switch_footprint.scad',file_header=f'$fn = {SEGMENTS};') 

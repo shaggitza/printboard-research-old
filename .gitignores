@@ -1,2 +1,8 @@
-*.scad
-*.stl
+# Ignore Python compiled files
+*.pyc
+
+# Ignore Python cache directories
+__pycache__/
+
+# Ignore output directory
+/output/
