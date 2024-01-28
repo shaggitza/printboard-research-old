@@ -120,12 +120,23 @@ from shapely.geometry import LineString
 
 def controller_pins(config):
     controller_info  = config['controller']
-    placement = config['placement']
+    placement_lr, placement_tb = config['controller_placement']
+    usable_pins = config['controller'].usable_pins
     pins_list = []
+    
+    closest_row = controller_info.pin_rows["left" if placement_lr == "right" else "right"]
+    farthest_row = controller_info.pin_rows["right" if placement_lr == "right" else "left"]
 
-    closest_row = 
+    # usable_pins
+    closest_usable_pins = [pin for pin in closest_row if pin in usable_pins]
+    farthest_usable_pins = [pin for pin in farthest_row if pin in usable_pins]
 
 
+    pprint(["closest_row", closest_usable_pins])
+    pprint(["farthest_row", farthest_usable_pins])
+
+    controller_footprint 
+    
 
 
 def check_intersection(line1, line2):
