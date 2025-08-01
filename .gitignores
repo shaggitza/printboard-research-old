@@ -4,5 +4,28 @@
 # Ignore Python cache directories
 __pycache__/
 
-# Ignore output directory
-/output/
+# Ignore output directory (except for pre-existing files)
+/output/*.scad
+/output/*.json
+!/output/prototype*
+!/output/vizualize.json
+
+# Ignore temporary files
+/tmp/
+*.tmp
+*.temp
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore test artifacts
+coverage.xml
+.coverage
+.pytest_cache/

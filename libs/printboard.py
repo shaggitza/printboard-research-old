@@ -46,7 +46,8 @@ def create_keyboard(config):
     best_pins_list = controller_pins(config)
     # controller = draw_controller(config, controller_config)
 
-    exit()
+    # TODO: Complete controller integration
+    # Temporarily comment out exit() to allow basic functionality
     
     # build = cube([1000, 1000, 1000]) - build
     parts.append({"name": "matrix", "shape": build})
