@@ -1,31 +1,40 @@
-# Ignore Python compiled files
-*.pyc
-
-# Ignore Python cache directories
+# Python
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Ignore output directory (except for pre-existing files)
-/output/*.scad
-/output/*.json
-!/output/prototype*
-!/output/vizualize.json
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
 
-# Ignore temporary files
-/tmp/
-*.tmp
-*.temp
-
-# Ignore IDE files
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# Ignore OS files
-.DS_Store
-Thumbs.db
-
-# Ignore test artifacts
-coverage.xml
-.coverage
-.pytest_cache/
+# Generated output (optional - remove if you want to track output files)
+output/*.scad
+output/*.json
+output/*.stl

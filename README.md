@@ -1,134 +1,67 @@
 # Printboard Research
 
-🔧 **Generate custom keyboard PCB layouts and 3D models**
+A simple, clean library for generating custom keyboard PCB layouts and 3D models.
 
-A Python project for creating custom keyboard PCBs with 3D printable components. This project has been rebooted with modern web interface, test coverage, and improved architecture.
+## What it does
 
-## Features
-
-- 🖥️ **Web Interface**: Easy-to-use web interface for keyboard configuration
-- 🗂️ **Multiple Layouts**: Support for various keyboard sizes (65%, custom layouts)
-- 🔧 **Configurable Components**: Different switch types and controller options  
-- 📐 **3D Model Generation**: Generates OpenSCAD files for 3D printing
-- 🧪 **Test Coverage**: Comprehensive test suite with integration tests
-- 📊 **Real-time Preview**: Live keyboard layout preview in the browser
+1. **Define keyboard layouts** - Specify key positions, sizes, and arrangements
+2. **Generate 3D models** - Create OpenSCAD files for 3D printing keyboard structures  
+3. **Plan wiring routes** - Calculate optimal paths between switches and controllers
+4. **Export configurations** - Save layouts as JSON for sharing and modification
 
 ## Quick Start
 
-### 1. Install Dependencies
+```python
+from printboard import KeyboardGenerator
+
+# Define a simple 3x3 layout
+layout = {
+    "name": "test_3x3",
+    "keys": [
+        ["key", "key", "key"],
+        ["key", "key", "key"], 
+        ["key", "key", "key"]
+    ],
+    "switch_type": "mx_style",
+    "controller": "arduino_pro_micro"
+}
+
+# Generate the keyboard
+generator = KeyboardGenerator()
+result = generator.generate(layout)
+
+# Save outputs
+result.save_scad("output/keyboard.scad")
+result.save_config("output/keyboard.json")
+```
+
+## Features
+
+- **Simple Configuration**: Easy-to-understand layout definitions
+- **Modular Design**: Pluggable switches and controllers  
+- **Clean Output**: Well-formatted OpenSCAD and JSON files
+- **Well Tested**: Comprehensive test coverage
+- **Web Interface**: Optional browser-based layout editor
+
+## Installation
 
 ```bash
-pip install -r requirements.txt
+# Basic usage (no 3D dependencies)
+python -m pip install -r requirements.txt
+
+# For 3D model generation
+python -m pip install solidpython
 ```
 
-Note: If external dependencies fail to install, the project includes mock implementations for development.
-
-### 2. Run the Web Server
+## Running Tests
 
 ```bash
-python web_server.py
+python -m pytest tests/ -v
 ```
 
-Then open http://localhost:8080 in your browser.
-
-### 3. Configure Your Keyboard
-
-- Choose keyboard size (5×5 test, 65%, or custom)
-- Select switch type (currently supports Gamdias Low Profile)
-- Pick controller (TinyS2 supported)
-- Set controller placement
-- Click "Generate Keyboard"
-
-### 4. Download Generated Files
-
-The web interface will generate:
-- `.scad` files for 3D printing
-- `.json` configuration files
-- Real-time preview of your layout
-
-## Development
-
-### Running Tests
+## Web Interface
 
 ```bash
-python run_tests.py
+python server.py
+# Open http://localhost:8000
 ```
-
-### Project Structure
-
-```
-printboard-research-old/
-├── libs/                    # Core libraries
-│   ├── printboard.py       # Main keyboard generation logic
-│   ├── switches/           # Switch definitions
-│   └── controllers/        # Controller definitions
-├── tests/                  # Test suite
-├── output/                 # Generated files
-├── web_server.py          # Web interface server
-├── mock_solid.py          # Mock implementation for development
-└── requirements.txt       # Python dependencies
-```
-
-### Architecture
-
-The project follows a modular architecture:
-
-- **Core Library** (`libs/printboard.py`): Matrix planning, tube routing, 3D model generation
-- **Component Definitions**: Switches and controllers with physical specifications
-- **Web Interface**: Flask-based server with HTML/JavaScript frontend  
-- **Test Suite**: Unit and integration tests with mock implementations
-- **Build System**: Requirements management and dependency handling
-
-### Adding New Components
-
-#### New Switch Type
-1. Create a new file in `libs/switches/`
-2. Define `conf` dict with physical dimensions
-3. Define `pins` array with electrical connections
-4. Add switch body 3D model definition
-
-#### New Controller  
-1. Create a new file in `libs/controllers/`
-2. Define `pin_rows` with pin layout
-3. Define `usable_pins` array
-4. Add controller footprint definition
-
-## Original vs. Rebooted
-
-### What's New
-- ✅ **Web Interface**: Modern browser-based configuration
-- ✅ **Test Coverage**: Comprehensive test suite
-- ✅ **Mock System**: Development without external dependencies
-- ✅ **Architecture Refactor**: Cleaner, more modular code
-- ✅ **Bug Fixes**: Removed blocking exit() calls and other issues
-
-### Maintained Features
-- ✅ **3D Model Generation**: Still generates OpenSCAD files
-- ✅ **Multiple Layouts**: Support for various keyboard configurations  
-- ✅ **Switch/Controller System**: Extensible component definitions
-- ✅ **Matrix Planning**: Advanced routing and layout algorithms
-
-## Dependencies
-
-### Required
-- Python 3.7+
-
-### Optional (for full functionality)  
-- solidpython: 3D model generation
-- numpy, scipy: Mathematical operations
-- shapely: Geometric calculations
-- flask: Web interface
-
-The project includes mock implementations so you can develop and test even without external dependencies.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes with tests
-4. Run the test suite: `python run_tests.py`
-5. Submit a pull request
-
-## License
-
-This project is licensed under the terms in the LICENSE file.
