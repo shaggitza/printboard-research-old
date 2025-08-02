@@ -14,6 +14,11 @@ import base64
 app = Flask(__name__)
 CORS(app)
 
+# Serve static files
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_file(os.path.join('static', filename))
+
 # Configuration
 app.config['SECRET_KEY'] = 'dev-key-change-in-production'
 app.config['OUTPUT_DIR'] = os.path.join(os.path.dirname(__file__), 'output')
@@ -104,6 +109,45 @@ def download_file(filename):
             return jsonify({'error': 'File not found'}), 404
     except Exception as e:
         return jsonify({'error': str(e)}), 400
+
+@app.route('/api/keyboard/presets')
+def get_presets():
+    """Get available keyboard layout presets."""
+    presets = {
+        'basic_5x5': {
+            'name': 'Basic 5x5',
+            'description': '25-key grid layout',
+            'rows': 5,
+            'cols': 5,
+            'layout_type': 'grid'
+        },
+        'compact_4x12': {
+            'name': 'Compact 4x12',
+            'description': '48-key compact layout',
+            'rows': 4,
+            'cols': 12,
+            'layout_type': 'grid'
+        },
+        'split_3x6': {
+            'name': 'Split 3x6',
+            'description': '36-key split layout',
+            'rows': 3,
+            'cols': 6,
+            'layout_type': 'split'
+        },
+        'ortho_5x12': {
+            'name': 'Ortholinear 5x12',
+            'description': '60-key ortholinear layout',
+            'rows': 5,
+            'cols': 12,
+            'layout_type': 'grid'
+        }
+    }
+    
+    return jsonify({
+        'success': True,
+        'presets': presets
+    })
 
 @app.route('/api/keyboard/files')
 def list_files():

@@ -291,6 +291,17 @@
                             <input type="text" id="name" name="name" value="my_keyboard" required>
                         </div>
                         
+                        <div class="form-group">
+                            <label for="preset">Layout Preset</label>
+                            <select id="preset" name="preset" onchange="loadPreset()">
+                                <option value="">Custom Layout</option>
+                                <option value="basic_5x5">Basic 5x5 (25 keys)</option>
+                                <option value="compact_4x12">Compact 4x12 (48 keys)</option>
+                                <option value="split_3x6">Split 3x6 (36 keys)</option>
+                                <option value="ortho_5x12">Ortholinear 5x12 (60 keys)</option>
+                            </select>
+                        </div>
+                        
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="rows">Number of Rows</label>
@@ -362,7 +373,7 @@
                 <!-- Files Tab -->
                 <div id="files" class="tab-pane">
                     <h2>Generated Files</h2>
-                    <p>Download your generated SCAD and STL files.</p>
+                    <p>Download your generated SCAD and STL files, or view STL files in 3D.</p>
                     
                     <button type="button" class="btn btn-secondary" onclick="refreshFiles()">
                         🔄 Refresh Files
@@ -373,6 +384,17 @@
                             No files generated yet. Use the Generate tab to create 3D models.
                         </p>
                     </div>
+                    
+                    <!-- STL Viewer Modal -->
+                    <div id="stl-viewer-modal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000;">
+                        <div style="position: relative; width: 90%; height: 90%; margin: 5% auto; background: white; border-radius: 10px;">
+                            <div style="padding: 20px; border-bottom: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center;">
+                                <h3 id="stl-viewer-title">3D Model Viewer</h3>
+                                <button onclick="closeSTLViewer()" style="background: none; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+                            </div>
+                            <div id="stl-viewer-container" style="height: calc(100% - 80px); width: 100%;"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
             
@@ -381,6 +403,12 @@
             </div>
         </div>
     </div>
+    
+    <!-- Include Three.js and STL Loader -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="/static/js/stl-viewer.js"></script>
     
     <script>
         let currentConfig = {};
@@ -561,6 +589,11 @@
                         </div>
                     </div>
                     <div class="file-actions">
+                        ${file.name.endsWith('.stl') ? `
+                            <button class="btn btn-secondary btn-sm" onclick="viewSTL('${file.name}')">
+                                👁️ View 3D
+                            </button>
+                        ` : ''}
                         <button class="btn btn-primary btn-sm" onclick="downloadFile('${file.name}')">
                             📥 Download
                         </button>
@@ -585,11 +618,64 @@
             return new Date(timestamp * 1000).toLocaleString();
         }
         
+        let stlViewer = null;
+        
+        function viewSTL(filename) {
+            const modal = document.getElementById('stl-viewer-modal');
+            const title = document.getElementById('stl-viewer-title');
+            const container = document.getElementById('stl-viewer-container');
+            
+            title.textContent = `3D Viewer - ${filename}`;
+            modal.style.display = 'block';
+            
+            // Initialize viewer if not already done
+            if (!stlViewer) {
+                stlViewer = new STLViewer('stl-viewer-container');
+            }
+            
+            // Load the STL file
+            const fileUrl = `/api/keyboard/download/${filename}`;
+            stlViewer.loadSTL(fileUrl);
+        }
+        
+        function closeSTLViewer() {
+            document.getElementById('stl-viewer-modal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('stl-viewer-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSTLViewer();
+            }
+        });
+        
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             updatePreview();
             refreshFiles();
         });
+        
+        async function loadPreset() {
+            const preset = document.getElementById('preset').value;
+            if (!preset) return;
+            
+            try {
+                const response = await fetch('/api/keyboard/presets');
+                const result = await response.json();
+                
+                if (result.success && result.presets[preset]) {
+                    const presetData = result.presets[preset];
+                    document.getElementById('rows').value = presetData.rows;
+                    document.getElementById('cols').value = presetData.cols;
+                    document.getElementById('name').value = presetData.name.toLowerCase().replace(/\s+/g, '_');
+                    
+                    updatePreview();
+                    setStatus(`Loaded preset: ${presetData.name}`, 'success');
+                }
+            } catch (error) {
+                setStatus(`Error loading preset: ${error.message}`, 'error');
+            }
+        }
     </script>
 </body>
 </html>

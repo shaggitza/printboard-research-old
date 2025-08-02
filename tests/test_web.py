@@ -84,3 +84,15 @@ def test_invalid_preview_config(client):
     
     # Should handle gracefully, might succeed with default values
     assert response.status_code in [200, 400]
+
+def test_presets_api(client):
+    """Test keyboard presets API."""
+    response = client.get('/api/keyboard/presets')
+    
+    assert response.status_code == 200
+    data = json.loads(response.data)
+    assert data['success'] is True
+    assert 'presets' in data
+    assert 'basic_5x5' in data['presets']
+    assert data['presets']['basic_5x5']['rows'] == 5
+    assert data['presets']['basic_5x5']['cols'] == 5
