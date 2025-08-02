@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Printboard Research - Keyboard Designer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: white;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .main-panel {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 15px 20px;
+            text-align: center;
+            cursor: pointer;
+            background: #f8f9fa;
+            border: none;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        
+        .tab.active {
+            background: white;
+            border-bottom: 3px solid #667eea;
+            color: #667eea;
+        }
+        
+        .tab:hover:not(.active) {
+            background: #e9ecef;
+        }
+        
+        .tab-content {
+            padding: 30px;
+        }
+        
+        .tab-pane {
+            display: none;
+        }
+        
+        .tab-pane.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .form-row {
+            display: flex;
+            gap: 20px;
+        }
+        
+        .form-row .form-group {
+            flex: 1;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-right: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .preview-area {
+            border: 2px dashed #e9ecef;
+            border-radius: 10px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            margin: 20px 0;
+        }
+        
+        .keyboard-preview {
+            transform-origin: center;
+        }
+        
+        .key {
+            fill: #fff;
+            stroke: #333;
+            stroke-width: 1;
+            cursor: pointer;
+            transition: fill 0.2s ease;
+        }
+        
+        .key:hover {
+            fill: #667eea;
+        }
+        
+        .key-label {
+            fill: #333;
+            font-family: monospace;
+            font-size: 10px;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+        }
+        
+        .status-bar {
+            background: #f8f9fa;
+            padding: 15px;
+            border-top: 1px solid #e9ecef;
+            text-align: center;
+        }
+        
+        .status-message {
+            margin: 0;
+            color: #6c757d;
+        }
+        
+        .status-message.success {
+            color: #28a745;
+        }
+        
+        .status-message.error {
+            color: #dc3545;
+        }
+        
+        .files-list {
+            margin-top: 20px;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background: #f8f9fa;
+        }
+        
+        .file-info {
+            flex: 1;
+        }
+        
+        .file-name {
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .file-details {
+            font-size: 12px;
+            color: #6c757d;
+        }
+        
+        .file-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Printboard Research</h1>
+            <p>Custom Keyboard Designer & 3D Model Generator</p>
+        </div>
+        
+        <div class="main-panel">
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('design')">Design</button>
+                <button class="tab" onclick="switchTab('preview')">Preview</button>
+                <button class="tab" onclick="switchTab('generate')">Generate</button>
+                <button class="tab" onclick="switchTab('files')">Files</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Design Tab -->
+                <div id="design" class="tab-pane active">
+                    <h2>Keyboard Configuration</h2>
+                    <form id="keyboard-form">
+                        <div class="form-group">
+                            <label for="name">Keyboard Name</label>
+                            <input type="text" id="name" name="name" value="my_keyboard" required>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="rows">Number of Rows</label>
+                                <input type="number" id="rows" name="rows" value="5" min="1" max="10" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="cols">Number of Columns</label>
+                                <input type="number" id="cols" name="cols" value="5" min="1" max="15" required>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="switch-type">Switch Type</label>
+                                <select id="switch-type" name="switchType">
+                                    <option value="gamdias_lp">Gamdias Low Profile</option>
+                                    <option value="cherry_mx">Cherry MX (Future)</option>
+                                    <option value="kailh_choc">Kailh Choc (Future)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="controller">Controller</label>
+                                <select id="controller" name="controller">
+                                    <option value="tinys2">TinyS2</option>
+                                    <option value="rp2040">RP2040 (Future)</option>
+                                    <option value="pro_micro">Pro Micro (Future)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <button type="button" class="btn btn-primary" onclick="updatePreview()">
+                            Update Preview
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Preview Tab -->
+                <div id="preview" class="tab-pane">
+                    <h2>2D Layout Preview</h2>
+                    <div class="preview-area">
+                        <svg id="keyboard-svg" width="400" height="300" viewBox="0 0 400 300">
+                            <text x="200" y="150" text-anchor="middle" fill="#999">
+                                Click "Update Preview" to see your keyboard layout
+                            </text>
+                        </svg>
+                    </div>
+                    <p style="text-align: center; color: #6c757d;">
+                        Preview your keyboard layout before generating 3D models
+                    </p>
+                </div>
+                
+                <!-- Generate Tab -->
+                <div id="generate" class="tab-pane">
+                    <h2>Generate 3D Models</h2>
+                    <p>Generate SCAD and STL files for 3D printing your keyboard.</p>
+                    
+                    <div class="loading" id="generation-loading">
+                        <div class="spinner"></div>
+                        <p>Generating 3D models...</p>
+                    </div>
+                    
+                    <button type="button" class="btn btn-primary" onclick="generateModels()" id="generate-btn">
+                        🚀 Generate 3D Models
+                    </button>
+                    
+                    <div id="generation-results" style="margin-top: 20px;"></div>
+                </div>
+                
+                <!-- Files Tab -->
+                <div id="files" class="tab-pane">
+                    <h2>Generated Files</h2>
+                    <p>Download your generated SCAD and STL files.</p>
+                    
+                    <button type="button" class="btn btn-secondary" onclick="refreshFiles()">
+                        🔄 Refresh Files
+                    </button>
+                    
+                    <div class="files-list" id="files-list">
+                        <p style="text-align: center; color: #6c757d;">
+                            No files generated yet. Use the Generate tab to create 3D models.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="status-bar">
+                <p class="status-message" id="status-message">Ready to design your keyboard</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentConfig = {};
+        
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Update tab content
+            document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+        }
+        
+        function getFormData() {
+            const form = document.getElementById('keyboard-form');
+            const formData = new FormData(form);
+            const config = {};
+            for (let [key, value] of formData.entries()) {
+                if (key === 'rows' || key === 'cols') {
+                    config[key] = parseInt(value);
+                } else {
+                    config[key] = value;
+                }
+            }
+            return config;
+        }
+        
+        function setStatus(message, type = 'info') {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = `status-message ${type}`;
+        }
+        
+        async function updatePreview() {
+            try {
+                setStatus('Generating preview...', 'info');
+                currentConfig = getFormData();
+                
+                const response = await fetch('/api/keyboard/preview', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(currentConfig)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderPreview(result.layout);
+                    setStatus('Preview updated successfully', 'success');
+                } else {
+                    setStatus(`Preview error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                setStatus(`Preview error: ${error.message}`, 'error');
+            }
+        }
+        
+        function renderPreview(layout) {
+            const svg = document.getElementById('keyboard-svg');
+            const keySize = 15;
+            const keyGap = 2;
+            const margin = 20;
+            
+            // Calculate SVG dimensions
+            const totalWidth = layout[0].length * (keySize + keyGap) + margin * 2;
+            const totalHeight = layout.length * (keySize + keyGap) + margin * 2;
+            
+            svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
+            svg.innerHTML = '';
+            
+            // Draw keys
+            layout.forEach((row, rowIndex) => {
+                row.forEach((key, colIndex) => {
+                    const x = margin + colIndex * (keySize + keyGap);
+                    const y = margin + rowIndex * (keySize + keyGap);
+                    
+                    // Key rectangle
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    rect.setAttribute('x', x);
+                    rect.setAttribute('y', y);
+                    rect.setAttribute('width', keySize);
+                    rect.setAttribute('height', keySize);
+                    rect.setAttribute('class', 'key');
+                    rect.setAttribute('data-row', rowIndex);
+                    rect.setAttribute('data-col', colIndex);
+                    svg.appendChild(rect);
+                    
+                    // Key label
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', x + keySize / 2);
+                    text.setAttribute('y', y + keySize / 2);
+                    text.setAttribute('class', 'key-label');
+                    text.textContent = `${rowIndex},${colIndex}`;
+                    svg.appendChild(text);
+                });
+            });
+        }
+        
+        async function generateModels() {
+            try {
+                setStatus('Generating 3D models...', 'info');
+                document.getElementById('generation-loading').style.display = 'block';
+                document.getElementById('generate-btn').disabled = true;
+                
+                const config = getFormData();
+                
+                const response = await fetch('/api/keyboard/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    const resultsEl = document.getElementById('generation-results');
+                    resultsEl.innerHTML = `
+                        <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 10px;">
+                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete!</h4>
+                            <p><strong>SCAD Files:</strong> ${result.scad_files.join(', ')}</p>
+                            ${result.stl_files.length > 0 ? `<p><strong>STL Files:</strong> ${result.stl_files.join(', ')}</p>` : ''}
+                            <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
+                                Go to the Files tab to download your generated models.
+                            </p>
+                        </div>
+                    `;
+                    setStatus(result.message, 'success');
+                    refreshFiles();
+                } else {
+                    setStatus(`Generation error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                setStatus(`Generation error: ${error.message}`, 'error');
+            } finally {
+                document.getElementById('generation-loading').style.display = 'none';
+                document.getElementById('generate-btn').disabled = false;
+            }
+        }
+        
+        async function refreshFiles() {
+            try {
+                const response = await fetch('/api/keyboard/files');
+                const result = await response.json();
+                
+                if (result.success) {
+                    renderFilesList(result.files);
+                } else {
+                    setStatus(`Files error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                setStatus(`Files error: ${error.message}`, 'error');
+            }
+        }
+        
+        function renderFilesList(files) {
+            const listEl = document.getElementById('files-list');
+            
+            if (files.length === 0) {
+                listEl.innerHTML = `
+                    <p style="text-align: center; color: #6c757d;">
+                        No files generated yet. Use the Generate tab to create 3D models.
+                    </p>
+                `;
+                return;
+            }
+            
+            listEl.innerHTML = files.map(file => `
+                <div class="file-item">
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-details">
+                            ${file.type} • ${formatFileSize(file.size)} • ${formatDate(file.created)}
+                        </div>
+                    </div>
+                    <div class="file-actions">
+                        <button class="btn btn-primary btn-sm" onclick="downloadFile('${file.name}')">
+                            📥 Download
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function downloadFile(filename) {
+            window.open(`/api/keyboard/download/${filename}`, '_blank');
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        function formatDate(timestamp) {
+            return new Date(timestamp * 1000).toLocaleString();
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePreview();
+            refreshFiles();
+        });
+    </script>
+</body>
+</html>
