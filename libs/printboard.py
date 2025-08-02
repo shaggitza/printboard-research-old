@@ -41,12 +41,12 @@ def create_keyboard(config):
     tubes = rotate([180, 0, 0])(tubes)
     # controller_shield = make_controller_points(config, controller_contacts) 
     build += tubes
-    build = union()()
+    # build = union()()
 
-    best_pins_list = controller_pins(config)
+    # best_pins_list = controller_pins(config)
     # controller = draw_controller(config, controller_config)
 
-    exit()
+    # exit()
     
     # build = cube([1000, 1000, 1000]) - build
     parts.append({"name": "matrix", "shape": build})
