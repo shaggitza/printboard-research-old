@@ -57,6 +57,39 @@ python app.py
 
 The application will be available at `http://localhost:5000`
 
+### Docker Installation (Recommended)
+
+For the easiest setup with automatic OpenSCAD support:
+
+```bash
+# Clone the repository
+git clone https://github.com/shaggitza/printboard-research-old.git
+cd printboard-research-old
+
+# Run with Docker Compose
+docker-compose up -d
+```
+
+The application will be available at `http://localhost:5000` with full STL generation capabilities.
+
+**Docker benefits:**
+- Includes OpenSCAD for automatic STL generation
+- No manual dependency installation
+- Consistent environment across different systems
+- Production-ready setup
+
+### Manual Installation
+
+If you prefer to run without Docker:
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the application
+python app.py
+```
+
 ### Optional: Install OpenSCAD
 
 For automatic STL generation, install OpenSCAD:
@@ -177,6 +210,38 @@ python -m pytest tests/test_web.py -v
 
 # Run with coverage report
 python -m pytest tests/ --cov-report=term-missing
+```
+
+### Docker Development
+
+**Build and run locally:**
+```bash
+# Build the Docker image
+docker build -t printboard-app .
+
+# Run with docker-compose (recommended)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+**Health check:**
+```bash
+# Check if the application is healthy and OpenSCAD is available
+curl http://localhost:5000/health
+```
+
+**Production deployment:**
+```bash
+# Run in production mode
+docker-compose -f docker-compose.yml up -d
+
+# Scale if needed
+docker-compose up --scale printboard-app=2 -d
 ```
 
 ### Project Structure

@@ -33,6 +33,14 @@ def index():
     """Main page with keyboard designer interface."""
     return render_template('index.html')
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Docker."""
+    return jsonify({
+        'status': 'healthy',
+        'openscad_available': subprocess.run(['which', 'openscad'], capture_output=True).returncode == 0
+    })
+
 @app.route('/api/keyboard/preview', methods=['POST'])
 def preview_keyboard():
     """Generate 2D preview of keyboard layout."""
@@ -77,19 +85,49 @@ def generate_keyboard():
             # Generate STL if OpenSCAD is available
             stl_file = os.path.join(app.config['OUTPUT_DIR'], f'{filename}.stl')
             try:
-                subprocess.run([
-                    'openscad', '-o', stl_file, scad_file
-                ], check=True, capture_output=True)
-                stl_files.append(f'{filename}.stl')
-            except (subprocess.CalledProcessError, FileNotFoundError):
-                # OpenSCAD not available or failed
-                pass
+                # Use Xvfb for headless OpenSCAD rendering in Docker
+                result = subprocess.run([
+                    'xvfb-run', '-a', 'openscad', 
+                    '-o', stl_file, 
+                    '--enable=manifold',
+                    scad_file
+                ], check=True, capture_output=True, text=True, timeout=60)
+                
+                # Verify STL file was created and has content
+                if os.path.exists(stl_file) and os.path.getsize(stl_file) > 0:
+                    stl_files.append(f'{filename}.stl')
+                    print(f"Successfully generated STL: {filename}.stl")
+                else:
+                    print(f"STL generation failed for {filename}: file not created or empty")
+                    
+            except subprocess.TimeoutExpired:
+                print(f"STL generation timed out for {filename}")
+            except subprocess.CalledProcessError as e:
+                print(f"OpenSCAD error for {filename}: {e.stderr}")
+            except FileNotFoundError:
+                print("OpenSCAD not found - STL generation skipped")
+                # Fall back to trying without xvfb
+                try:
+                    subprocess.run([
+                        'openscad', '-o', stl_file, scad_file
+                    ], check=True, capture_output=True, timeout=60)
+                    if os.path.exists(stl_file) and os.path.getsize(stl_file) > 0:
+                        stl_files.append(f'{filename}.stl')
+                except Exception:
+                    pass
+        
+        # Generate success message with details
+        success_msg = f'Generated {len(scad_files)} SCAD files'
+        if stl_files:
+            success_msg += f' and {len(stl_files)} STL files'
+        else:
+            success_msg += ' (STL generation requires OpenSCAD)'
         
         return jsonify({
             'success': True,
             'scad_files': scad_files,
             'stl_files': stl_files,
-            'message': f'Generated {len(scad_files)} SCAD files and {len(stl_files)} STL files'
+            'message': success_msg
         })
         
     except Exception as e:
