@@ -332,6 +332,64 @@
                             </div>
                         </div>
                         
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="controller-placement-lr">Controller Position (Left/Right)</label>
+                                <select id="controller-placement-lr" name="controllerPlacementLR">
+                                    <option value="left">Left</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="controller-placement-tb">Controller Position (Top/Bottom)</label>
+                                <select id="controller-placement-tb" name="controllerPlacementTB">
+                                    <option value="top">Top</option>
+                                    <option value="bottom">Bottom</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="matrix-offset-x">Matrix Offset X</label>
+                                <input type="number" id="matrix-offset-x" name="matrixOffsetX" value="0" step="0.1">
+                            </div>
+                            <div class="form-group">
+                                <label for="matrix-offset-y">Matrix Offset Y</label>
+                                <input type="number" id="matrix-offset-y" name="matrixOffsetY" value="0" step="0.1">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rotation-angle">Matrix Rotation Angle (degrees)</label>
+                            <input type="number" id="rotation-angle" name="rotationAngle" value="0" step="1" min="-180" max="180">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rows-angle">Row Angles (comma-separated, e.g., "0,2,5,2,0")</label>
+                            <input type="text" id="rows-angle" name="rowsAngle" placeholder="e.g., 0,2,5,2,0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="columns-angle">Column Angles (comma-separated, e.g., "0,0,5,10,15")</label>
+                            <input type="text" id="columns-angle" name="columnsAngle" placeholder="e.g., 0,0,5,10,15">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="rows-stagger">Row Stagger (comma-separated offsets, e.g., "0,5,10,10,0")</label>
+                            <input type="text" id="rows-stagger" name="rowsStagger" placeholder="e.g., 0,5,10,10,0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="columns-stagger">Column Stagger (comma-separated offsets, e.g., "0,2,5,2,0")</label>
+                            <input type="text" id="columns-stagger" name="columnsStagger" placeholder="e.g., 0,2,5,2,0">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="padding-keys">Key Padding (comma-separated, e.g., "5,5,5,5,5")</label>
+                            <input type="text" id="padding-keys" name="paddingKeys" placeholder="e.g., 5,5,5,5,5">
+                        </div>
+                        
                         <button type="button" class="btn btn-primary" onclick="updatePreview()">
                             Update Preview
                         </button>
@@ -427,9 +485,20 @@
             const form = document.getElementById('keyboard-form');
             const formData = new FormData(form);
             const config = {};
+            
+            // Helper function to parse comma-separated numbers
+            function parseNumberArray(str) {
+                if (!str || str.trim() === '') return null;
+                return str.split(',').map(s => parseFloat(s.trim())).filter(n => !isNaN(n));
+            }
+            
             for (let [key, value] of formData.entries()) {
                 if (key === 'rows' || key === 'cols') {
                     config[key] = parseInt(value);
+                } else if (key === 'matrixOffsetX' || key === 'matrixOffsetY' || key === 'rotationAngle') {
+                    config[key] = parseFloat(value) || 0;
+                } else if (key === 'rowsAngle' || key === 'columnsAngle' || key === 'rowsStagger' || key === 'columnsStagger' || key === 'paddingKeys') {
+                    config[key] = parseNumberArray(value);
                 } else {
                     config[key] = value;
                 }
@@ -472,21 +541,45 @@
         function renderPreview(layout) {
             const svg = document.getElementById('keyboard-svg');
             const keySize = 15;
-            const keyGap = 2;
             const margin = 20;
             
-            // Calculate SVG dimensions
-            const totalWidth = layout[0].length * (keySize + keyGap) + margin * 2;
-            const totalHeight = layout.length * (keySize + keyGap) + margin * 2;
+            // Find bounds of the layout to center it
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+            
+            layout.forEach(row => {
+                row.forEach(key => {
+                    minX = Math.min(minX, key.x);
+                    maxX = Math.max(maxX, key.x + key.width);
+                    minY = Math.min(minY, key.y);
+                    maxY = Math.max(maxY, key.y + key.height);
+                });
+            });
+            
+            // Calculate SVG dimensions with padding
+            const totalWidth = (maxX - minX) + margin * 2;
+            const totalHeight = (maxY - minY) + margin * 2;
             
             svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
             svg.innerHTML = '';
             
             // Draw keys
-            layout.forEach((row, rowIndex) => {
-                row.forEach((key, colIndex) => {
-                    const x = margin + colIndex * (keySize + keyGap);
-                    const y = margin + rowIndex * (keySize + keyGap);
+            layout.forEach(row => {
+                row.forEach(key => {
+                    // Normalize coordinates to start from margin
+                    const x = key.x - minX + margin;
+                    const y = key.y - minY + margin;
+                    const angle = key.angle || 0;
+                    
+                    // Create a group for the key (for rotation)
+                    const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                    
+                    // Apply rotation transform if needed
+                    if (angle !== 0) {
+                        const centerX = x + keySize / 2;
+                        const centerY = y + keySize / 2;
+                        group.setAttribute('transform', `rotate(${angle} ${centerX} ${centerY})`);
+                    }
                     
                     // Key rectangle
                     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -495,17 +588,17 @@
                     rect.setAttribute('width', keySize);
                     rect.setAttribute('height', keySize);
                     rect.setAttribute('class', 'key');
-                    rect.setAttribute('data-row', rowIndex);
-                    rect.setAttribute('data-col', colIndex);
-                    svg.appendChild(rect);
+                    group.appendChild(rect);
                     
                     // Key label
                     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                     text.setAttribute('x', x + keySize / 2);
                     text.setAttribute('y', y + keySize / 2);
                     text.setAttribute('class', 'key-label');
-                    text.textContent = `${rowIndex},${colIndex}`;
-                    svg.appendChild(text);
+                    text.textContent = key.label;
+                    group.appendChild(text);
+                    
+                    svg.appendChild(group);
                 });
             });
         }
