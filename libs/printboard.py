@@ -156,7 +156,7 @@ def best_traces(traces):
     for i in range(0, len(scores)):
         score = sum(scores[i])
         traces_count = len(scores[i])
-        weight = score/traces_count
+        weight = score/traces_count if traces_count > 0 else 0
         if weight > best_score:
             best_score = weight
             best_score_index = i
@@ -292,8 +292,9 @@ def arrange_points_in_matrix(points_list):
 
 
         
-    pprint(["real_unconnected_points_rows", real_unconnected_points_rows])
-    pprint(["real_unconnected_points_columns", real_unconnected_points_columns])
+    # Debug output removed to reduce noise
+    # pprint(["real_unconnected_points_rows", real_unconnected_points_rows])
+    # pprint(["real_unconnected_points_columns", real_unconnected_points_columns])
 
     return [real_matrix_rows, len(real_unconnected_points_rows)], [real_matrix_columns, len(real_unconnected_points_columns)]
 
