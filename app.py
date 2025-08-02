@@ -89,7 +89,6 @@ def generate_keyboard():
                 result = subprocess.run([
                     'xvfb-run', '-a', 'openscad', 
                     '-o', stl_file, 
-                    '--enable=manifold',
                     scad_file
                 ], check=True, capture_output=True, text=True, timeout=60)
                 
