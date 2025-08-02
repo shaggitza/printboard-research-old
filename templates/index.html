@@ -530,11 +530,15 @@
                 
                 if (result.success) {
                     const resultsEl = document.getElementById('generation-results');
+                    const stlStatus = result.stl_files.length > 0 
+                        ? `<p><strong>STL Files:</strong> ${result.stl_files.join(', ')}</p>`
+                        : `<p><strong>STL Generation:</strong> ${result.message.includes('requires OpenSCAD') ? 'Failed - OpenSCAD not available' : 'Skipped'}</p>`;
+                    
                     resultsEl.innerHTML = `
                         <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 10px;">
                             <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete!</h4>
                             <p><strong>SCAD Files:</strong> ${result.scad_files.join(', ')}</p>
-                            ${result.stl_files.length > 0 ? `<p><strong>STL Files:</strong> ${result.stl_files.join(', ')}</p>` : ''}
+                            ${stlStatus}
                             <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
                                 Go to the Files tab to download your generated models.
                             </p>

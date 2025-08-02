@@ -119,7 +119,7 @@ def generate_keyboard():
         # Generate success message with details
         success_msg = f'Generated {len(scad_files)} SCAD files'
         if stl_files:
-            success_msg += f' and {len(stl_files)} STL files'
+            success_msg += f' and {len(stl_files)} STL files successfully'
         else:
             success_msg += ' (STL generation requires OpenSCAD)'
         
