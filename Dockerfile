@@ -34,4 +34,4 @@ ENV FLASK_ENV=production
 ENV DOCKER_CONTAINER=true
 
 # Run the application
-CMD ["python", "app.py"]
+CMD ["python", "app.py", "5000"]
