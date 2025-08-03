@@ -8,6 +8,10 @@ from libs import printboard as kb
 from libs.switches import gamdias_lp as switch
 from libs.controllers import tinys2 as controller
 from solid import scad_render_to_file
+
+# Import V2 API
+from libs.printboard_v2 import KeyboardBuilder, KeyboardConfig, MatrixConfig
+from libs.printboard_v2.builder import keyboard_builder
 import io
 import base64
 
@@ -192,6 +196,188 @@ def get_presets():
         'success': True,
         'presets': presets
     })
+
+# V2 API Endpoints
+
+@app.route('/api/v2/keyboard/preview', methods=['POST'])
+def preview_keyboard_v2():
+    """Generate 2D preview using V2 API."""
+    try:
+        request_data = request.get_json()
+        
+        # Create configuration using V2 API
+        config = keyboard_builder.create_config_from_web_request(request_data)
+        
+        # Generate preview
+        layout_data = keyboard_builder.generate_preview(config)
+        
+        return jsonify({
+            'success': True,
+            'layout': layout_data,
+            'message': 'V2 Preview generated successfully',
+            'api_version': '2.0'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_version': '2.0'
+        }), 400
+
+@app.route('/api/v2/keyboard/generate', methods=['POST'])  
+def generate_keyboard_v2():
+    """Generate 3D model using V2 API."""
+    try:
+        request_data = request.get_json()
+        
+        # Create configuration using V2 API
+        config = keyboard_builder.create_config_from_web_request(request_data)
+        
+        # Build keyboard
+        result = keyboard_builder.build_keyboard(config)
+        
+        # Generate files (same file generation as V1 for compatibility)
+        scad_files = []
+        stl_files = []
+        
+        for part in result.parts:
+            # Generate SCAD
+            filename = f"{config.name}_{part.name}"
+            scad_file = os.path.join(app.config['OUTPUT_DIR'], f'{filename}.scad')
+            scad_render_to_file(part.shape, scad_file, file_header='$fn = 50;')
+            scad_files.append(f'{filename}.scad')
+            
+            # Generate STL if OpenSCAD is available
+            stl_file = os.path.join(app.config['OUTPUT_DIR'], f'{filename}.stl')
+            try:
+                # Use Xvfb for headless OpenSCAD rendering in Docker
+                subprocess_result = subprocess.run([
+                    'xvfb-run', '-a', 'openscad', 
+                    '-o', stl_file, 
+                    scad_file
+                ], check=True, capture_output=True, text=True, timeout=60)
+                
+                # Verify STL file was created and has content
+                if os.path.exists(stl_file) and os.path.getsize(stl_file) > 0:
+                    stl_files.append(f'{filename}.stl')
+                    print(f"Successfully generated STL: {filename}.stl")
+                else:
+                    print(f"STL generation failed for {filename}: file not created or empty")
+                    
+            except subprocess.TimeoutExpired:
+                print(f"STL generation timed out for {filename}")
+            except subprocess.CalledProcessError as e:
+                print(f"OpenSCAD error for {filename}: {e.stderr}")
+            except FileNotFoundError:
+                print("OpenSCAD not found - STL generation skipped")
+                # Fall back to trying without xvfb
+                try:
+                    subprocess.run([
+                        'openscad', '-o', stl_file, scad_file
+                    ], check=True, capture_output=True, timeout=60)
+                    if os.path.exists(stl_file) and os.path.getsize(stl_file) > 0:
+                        stl_files.append(f'{filename}.stl')
+                except Exception:
+                    pass
+        
+        # Generate success message with details
+        success_msg = f'V2 API: Generated {len(scad_files)} SCAD files'
+        if stl_files:
+            success_msg += f' and {len(stl_files)} STL files successfully'
+        else:
+            success_msg += ' (STL generation requires OpenSCAD)'
+        
+        return jsonify({
+            'success': True,
+            'scad_files': scad_files,
+            'stl_files': stl_files,
+            'message': success_msg,
+            'api_version': '2.0',
+            'metadata': result.metadata
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_version': '2.0'
+        }), 400
+
+@app.route('/api/v2/components/switches')
+def list_switches_v2():
+    """List available switch types in V2 API."""
+    try:
+        switches = keyboard_builder.list_available_switches()
+        return jsonify({
+            'success': True,
+            'switches': switches,
+            'api_version': '2.0'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_version': '2.0'
+        }), 400
+
+@app.route('/api/v2/components/controllers')
+def list_controllers_v2():
+    """List available controller types in V2 API."""
+    try:
+        controllers = keyboard_builder.list_available_controllers()
+        return jsonify({
+            'success': True,
+            'controllers': controllers,
+            'api_version': '2.0'
+        })
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_version': '2.0'
+        }), 400
+
+@app.route('/api/v2/keyboard/simple', methods=['POST'])
+def create_simple_keyboard_v2():
+    """Create a simple keyboard with V2 API - demonstrating builder pattern."""
+    try:
+        request_data = request.get_json()
+        
+        name = request_data.get('name', 'simple_keyboard')
+        rows = request_data.get('rows', 5)
+        cols = request_data.get('cols', 5)
+        switch_type = request_data.get('switch_type', 'gamdias_lp')
+        controller_type = request_data.get('controller_type', 'tinys2')
+        
+        # Use the clean builder interface
+        result = keyboard_builder.create_simple_keyboard(
+            name=name,
+            rows=rows,
+            cols=cols,
+            switch_type=switch_type,
+            controller_type=controller_type
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': f'Simple keyboard "{name}" created successfully',
+            'api_version': '2.0',
+            'config': {
+                'name': result.config.name,
+                'switch_type': result.config.switch_type,
+                'controller_type': result.config.controller_type,
+                'matrices': {k: {'rows': v.rows, 'cols': v.cols} 
+                           for k, v in result.config.matrices.items()}
+            },
+            'metadata': result.metadata
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'api_version': '2.0'
+        }), 400
 
 @app.route('/api/keyboard/files')
 def list_files():
