@@ -296,6 +296,27 @@
                         </div>
                         
                         <div class="form-group">
+                            <label for="api-version">API Version</label>
+                            <select id="api-version" name="apiVersion" onchange="onApiVersionChange()">
+                                <option value="v1">V1 - Legacy API (Stable)</option>
+                                <option value="v2">V2 - Modern API (Clean Architecture)</option>
+                            </select>
+                            <small style="color: #6c757d; margin-top: 5px; display: block;">
+                                V2 API provides better architecture and type safety. V1 is fully backward compatible.
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="auto-advance" checked style="margin-right: 8px;">
+                                Auto-advance to next tab after completion
+                            </label>
+                            <small style="color: #6c757d; margin-top: 5px; display: block;">
+                                Automatically navigate to the next step when an operation completes successfully.
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
                             <label for="preset">Layout Preset</label>
                             <select id="preset" name="preset" onchange="loadPreset()">
                                 <option value="">Custom Layout</option>
@@ -394,7 +415,7 @@
                             <input type="text" id="padding-keys" name="paddingKeys" placeholder="e.g., 5,5,5,5,5">
                         </div>
                         
-                        <button type="button" class="btn btn-primary" onclick="updatePreview()">
+                        <button type="button" class="btn btn-primary" onclick="updatePreviewWithAdvance()">
                             Update Preview
                         </button>
                     </form>
@@ -478,11 +499,49 @@
         function switchTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // When called programmatically, find the tab button by data attribute or text
+                const tabButton = Array.from(document.querySelectorAll('.tab')).find(tab => 
+                    tab.textContent.toLowerCase().trim() === tabName.toLowerCase().trim()
+                );
+                if (tabButton) {
+                    tabButton.classList.add('active');
+                }
+            }
             
             // Update tab content
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
+        }
+        
+        function autoAdvanceToTab(tabName, delay = 1500) {
+            const autoAdvanceEnabled = document.getElementById('auto-advance').checked;
+            if (!autoAdvanceEnabled) return;
+            
+            setTimeout(() => {
+                switchTab(tabName);
+                // Add a visual indication of the auto-advance
+                setStatus(`Automatically advanced to ${tabName.charAt(0).toUpperCase() + tabName.slice(1)} tab`, 'success');
+            }, delay);
+        }
+        
+        function getApiVersion() {
+            return document.getElementById('api-version').value;
+        }
+        
+        function getApiPath(endpoint) {
+            const version = getApiVersion();
+            if (version === 'v2') {
+                return `/api/v2/keyboard/${endpoint}`;
+            }
+            return `/api/keyboard/${endpoint}`;
+        }
+        
+        function onApiVersionChange() {
+            const version = getApiVersion();
+            setStatus(`Switched to API ${version.toUpperCase()}`, 'info');
         }
         
         function getFormData() {
@@ -507,6 +566,10 @@
                     config[key] = value;
                 }
             }
+            
+            // Add API version to config
+            config.apiVersion = getApiVersion();
+            
             return config;
         }
         
@@ -521,7 +584,8 @@
                 setStatus('Generating preview...', 'info');
                 currentConfig = getFormData();
                 
-                const response = await fetch('/api/keyboard/preview', {
+                const apiPath = getApiPath('preview');
+                const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -533,12 +597,24 @@
                 
                 if (result.success) {
                     renderPreview(result.layout);
-                    setStatus('Preview updated successfully', 'success');
+                    const apiVersion = result.api_version || '1.0';
+                    setStatus(`Preview updated successfully (API v${apiVersion})`, 'success');
                 } else {
                     setStatus(`Preview error: ${result.error}`, 'error');
                 }
             } catch (error) {
                 setStatus(`Preview error: ${error.message}`, 'error');
+            }
+        }
+        
+        async function updatePreviewWithAdvance() {
+            await updatePreview();
+            
+            // Check if preview was successful by checking status
+            const statusElement = document.getElementById('status');
+            if (statusElement && statusElement.classList.contains('alert-success')) {
+                // Auto-advance to Preview tab only on explicit button click
+                autoAdvanceToTab('preview');
             }
         }
         
@@ -614,8 +690,9 @@
                 document.getElementById('generate-btn').disabled = true;
                 
                 const config = getFormData();
+                const apiPath = getApiPath('generate');
                 
-                const response = await fetch('/api/keyboard/generate', {
+                const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -631,18 +708,43 @@
                         ? `<p><strong>STL Files:</strong> ${result.stl_files.join(', ')}</p>`
                         : `<p><strong>STL Generation:</strong> ${result.message.includes('requires OpenSCAD') ? 'Failed - OpenSCAD not available' : 'Skipped'}</p>`;
                     
+                    const apiVersion = result.api_version || '1.0';
+                    
+                    // Create file action buttons
+                    let fileActionsHtml = '';
+                    if (result.files_with_actions && result.files_with_actions.length > 0) {
+                        fileActionsHtml = '<div style="margin-top: 15px;"><h5>Generated Files:</h5>';
+                        result.files_with_actions.forEach(file => {
+                            const buttonStyle = file.type === 'stl' 
+                                ? 'background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;'
+                                : 'background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;';
+                            
+                            fileActionsHtml += `<a href="${file.download_url}" style="${buttonStyle}" target="_blank">${file.action_label}</a>`;
+                        });
+                        fileActionsHtml += '</div>';
+                    }
+                    
+                    const keyboardName = result.keyboard_name ? `<p><strong>Keyboard:</strong> ${result.keyboard_name}</p>` : '';
+                    
                     resultsEl.innerHTML = `
                         <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 10px;">
-                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete!</h4>
+                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete! (API v${apiVersion})</h4>
+                            ${keyboardName}
                             <p><strong>SCAD Files:</strong> ${result.scad_files.join(', ')}</p>
                             ${stlStatus}
-                            <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
-                                Go to the Files tab to download your generated models.
+                            ${fileActionsHtml}
+                            <p style="margin-top: 15px; font-size: 12px; color: #6c757d;">
+                                Previous generations can be found in the Files tab.
                             </p>
                         </div>
                     `;
                     setStatus(result.message, 'success');
                     refreshFiles();
+                    
+                    // Only auto-advance to Files tab if there are no inline actions
+                    if (!result.files_with_actions || result.files_with_actions.length === 0) {
+                        autoAdvanceToTab('files');
+                    }
                 } else {
                     setStatus(`Generation error: ${result.error}`, 'error');
                 }
