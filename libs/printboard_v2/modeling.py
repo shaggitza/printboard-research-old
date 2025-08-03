@@ -24,24 +24,24 @@ class ModelingEngine:
         self.segments = 50
     
     def generate_matrix_3d(self, matrix_config: MatrixConfig, switch: SwitchInterface, matrix_name: str = "main") -> Any:
-        """Generate 3D geometry for a keyboard matrix."""
+        """Generate 3D cavity geometry for switch mounting holes in a keyboard matrix."""
         # Plan the switch positions
         switch_positions = self._plan_switch_positions(matrix_config, switch)
         
-        # Create the union of all switch bodies
+        # Create the union of all switch mounting cavities
         matrix_union = union()()
         
         for position in switch_positions:
-            switch_body = switch.get_3d_model()
+            switch_cavity = switch.get_3d_model()  # Now returns mounting cavity
             
             # Apply transformations: translation, then rotation
-            transformed_switch = translate([position['x'], position['y'], 0])(
+            transformed_cavity = translate([position['x'], position['y'], 0])(
                 rotate([0, 0, position['rotation']])(
-                    switch_body
+                    switch_cavity
                 )
             )
             
-            matrix_union += transformed_switch
+            matrix_union += transformed_cavity
         
         return matrix_union
     
@@ -98,7 +98,7 @@ class ModelingEngine:
         return union()()
     
     def create_keyboard_parts(self, config: KeyboardConfig) -> List[Dict[str, Any]]:
-        """Create all keyboard parts as 3D geometry."""
+        """Create keyboard parts as 3D cavity geometry for switch mounting."""
         from .switches import switch_registry
         
         parts = []
@@ -108,18 +108,18 @@ class ModelingEngine:
         if not switch:
             raise ValueError(f"Unknown switch type: {config.switch_type}")
         
-        # Generate matrix parts
+        # Generate matrix parts (switch mounting cavities)
         for matrix_name, matrix_config in config.matrices.items():
             matrix_geometry = self.generate_matrix_3d(matrix_config, switch, matrix_name)
             
             # Add routing tubes
             routing_geometry = self.generate_routing_tubes(matrix_config, switch)
             
-            # Combine matrix and routing
+            # Combine matrix cavities and routing
             combined_geometry = matrix_geometry + routing_geometry
             
             parts.append({
-                "name": f"{matrix_name}_matrix",
+                "name": f"{matrix_name}_switch_holes",
                 "shape": combined_geometry
             })
         

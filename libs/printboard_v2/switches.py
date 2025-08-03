@@ -49,7 +49,11 @@ class SwitchInterface(ABC):
     
     @abstractmethod
     def get_3d_model(self, **kwargs) -> Any:
-        """Get 3D model geometry for the switch."""
+        """Get 3D mounting cavity geometry for the switch.
+        
+        Returns the negative space (hole/cavity) where the switch will be mounted,
+        not the solid switch body itself.
+        """
         pass
     
     @abstractmethod
@@ -90,37 +94,42 @@ class GamdiasLPSwitch(SwitchInterface):
         )
     
     def get_3d_model(self, **kwargs) -> Any:
-        """Create switch body 3D model."""
-        # Create a simplified but representative switch body
-        # This is a basic box-like switch body for Gamdias LP
-        switch_body_x = 14.5
-        switch_body_y = 14.5
-        switch_body_height = 2.0
-        switch_total_height = 8.0
+        """Create switch mounting cavity (negative space for switch installation)."""
+        # Create the cavity/hole where the switch will be mounted
+        # This is slightly larger than the actual switch for clearance
         
-        # Main switch housing
-        main_body = cube([switch_body_x, switch_body_y, switch_body_height], center=True)
+        # Main switch cavity - slightly larger than switch body for clearance
+        cavity_clearance = 0.2  # 0.2mm clearance on each side
+        switch_cavity_x = 14.5 + (2 * cavity_clearance)
+        switch_cavity_y = 14.5 + (2 * cavity_clearance) 
+        switch_cavity_depth = 2.2  # Slightly deeper than switch body
         
-        # Switch stem area (where the key cap sits)
-        stem_size = 12.0
-        stem_height = 6.0
-        stem_body = up(switch_body_height/2 + stem_height/2)(
-            cube([stem_size, stem_size, stem_height], center=True)
+        # Main mounting cavity
+        main_cavity = cube([switch_cavity_x, switch_cavity_y, switch_cavity_depth], center=True)
+        
+        # Stem cavity (where the key cap mechanism goes)
+        stem_clearance = 0.1
+        stem_cavity_size = 12.0 + (2 * stem_clearance)
+        stem_cavity_depth = 6.2  # Slightly deeper than stem
+        stem_cavity = up(switch_cavity_depth/2 + stem_cavity_depth/2)(
+            cube([stem_cavity_size, stem_cavity_size, stem_cavity_depth], center=True)
         )
         
-        # Create pin holes (simplified)
-        pin_hole_size = 1.0
-        pin1_hole = translate([-4.7, -5.0, 0])(
-            cylinder(d=pin_hole_size, h=switch_total_height, center=True)
+        # Pin cavities (holes for the electrical pins)
+        pin_cavity_diameter = 1.2  # Slightly larger than pin for clearance
+        pin_cavity_depth = 10.0  # Deep enough for pins
+        
+        pin1_cavity = translate([-4.7, -5.0, 0])(
+            cylinder(d=pin_cavity_diameter, h=pin_cavity_depth, center=True)
         )
-        pin2_hole = translate([5.0, 8.0, 0])(
-            cylinder(d=pin_hole_size, h=switch_total_height, center=True)
+        pin2_cavity = translate([5.0, 8.0, 0])(
+            cylinder(d=pin_cavity_diameter, h=pin_cavity_depth, center=True)
         )
         
-        # Combine all parts
-        switch_complete = main_body + stem_body - pin1_hole - pin2_hole
+        # Combine all cavities
+        complete_cavity = main_cavity + stem_cavity + pin1_cavity + pin2_cavity
         
-        return switch_complete
+        return complete_cavity
     
     def get_spacing_x(self) -> float:
         """Get horizontal spacing between switches."""
