@@ -31,7 +31,14 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 @app.route('/')
 def index():
     """Main page with keyboard designer interface."""
-    return render_template('index.html')
+    from flask import make_response
+    import time
+    response = make_response(render_template('index.html', cache_bust=int(time.time())))
+    # Add cache-busting headers to prevent browser caching
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/health')
 def health_check():
@@ -215,20 +222,64 @@ def list_files():
         }), 400
 
 def generate_layout_data(config):
-    """Generate 2D layout data for preview."""
+    """Generate 2D layout data for preview with staggering and angles."""
+    import math
+    
     rows = config.get('rows', 5)
     cols = config.get('cols', 5)
     switch_size = 18.5  # Standard key size
+    
+    # Get advanced parameters
+    rows_stagger = config.get('rowsStagger', [])
+    columns_stagger = config.get('columnsStagger', [])
+    rows_angle = config.get('rowsAngle', [])
+    columns_angle = config.get('columnsAngle', [])
+    rotation_angle = config.get('rotationAngle', 0)
+    matrix_offset_x = config.get('matrixOffsetX', 0)
+    matrix_offset_y = config.get('matrixOffsetY', 0)
     
     layout = []
     for row in range(rows):
         row_data = []
         for col in range(cols):
+            # Base position
+            x = col * switch_size
+            y = row * switch_size
+            
+            # Apply row staggering
+            if rows_stagger and row < len(rows_stagger):
+                x -= rows_stagger[row]
+            
+            # Apply column staggering  
+            if columns_stagger and col < len(columns_stagger):
+                y -= columns_stagger[col]
+            
+            # Calculate individual key angle
+            key_angle = 0
+            if rows_angle and row < len(rows_angle):
+                key_angle += rows_angle[row]
+            if columns_angle and col < len(columns_angle):
+                key_angle += columns_angle[col]
+            
+            # Apply matrix rotation
+            if rotation_angle != 0:
+                angle_rad = math.radians(rotation_angle)
+                cos_a = math.cos(angle_rad)
+                sin_a = math.sin(angle_rad)
+                new_x = x * cos_a - y * sin_a
+                new_y = x * sin_a + y * cos_a
+                x, y = new_x, new_y
+            
+            # Apply matrix offset
+            x += matrix_offset_x
+            y += matrix_offset_y
+            
             key = {
-                'x': col * switch_size,
-                'y': row * switch_size,
+                'x': x,
+                'y': y,
                 'width': switch_size,
                 'height': switch_size,
+                'angle': key_angle,
                 'label': f'R{row}C{col}'
             }
             row_data.append(key)
@@ -242,19 +293,44 @@ def build_keyboard_config(config):
     cols = config.get('cols', 5)
     name = config.get('name', 'custom_keyboard')
     
+    # Controller placement
+    controller_lr = config.get('controllerPlacementLR', 'left')
+    controller_tb = config.get('controllerPlacementTB', 'top')
+    
+    # Matrix offset
+    matrix_offset_x = config.get('matrixOffsetX', 0)
+    matrix_offset_y = config.get('matrixOffsetY', 0)
+    
     # Create basic matrix
     x = "switch"
     matrix_keys = [[x] * cols for _ in range(rows)]
     
+    # Build matrix configuration
+    matrix_config = {
+        "offset": (matrix_offset_x, matrix_offset_y),
+        "keys": matrix_keys,
+    }
+    
+    # Add optional parameters if provided
+    if config.get('rowsAngle'):
+        matrix_config["rows_angle"] = config['rowsAngle']
+    if config.get('columnsAngle'):
+        matrix_config["columns_angle"] = config['columnsAngle']
+    if config.get('rowsStagger'):
+        matrix_config["rows_stagger"] = config['rowsStagger']
+    if config.get('columnsStagger'):
+        matrix_config["columns_stagger"] = config['columnsStagger']
+    if config.get('rotationAngle'):
+        matrix_config["rotation_angle"] = config['rotationAngle']
+    if config.get('paddingKeys'):
+        matrix_config["padding_keys"] = config['paddingKeys']
+    
     # Build keyboard layout
     layout = {
         "name": name,
-        "controller_placement": ("left", "top"),
+        "controller_placement": (controller_lr, controller_tb),
         "matrixes": {
-            "main": {
-                "offset": (0, 0),
-                "keys": matrix_keys,
-            }
+            "main": matrix_config
         },
         "switch": switch,
         "empty_switch": kb.empty_sw(switch),
