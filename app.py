@@ -31,7 +31,14 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 @app.route('/')
 def index():
     """Main page with keyboard designer interface."""
-    return render_template('index.html')
+    from flask import make_response
+    import time
+    response = make_response(render_template('index.html', cache_bust=int(time.time())))
+    # Add cache-busting headers to prevent browser caching
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 @app.route('/health')
 def health_check():
