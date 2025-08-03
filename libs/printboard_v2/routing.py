@@ -111,9 +111,13 @@ class RoutePlanner:
                         rotated_y = pin_x_local * sin_angle + pin_y_local * cos_angle
                         pin_x_local, pin_y_local = rotated_x, rotated_y
                     
-                    # Transform to world coordinates
-                    world_x = key_position.x + pin_x_local
-                    world_y = key_position.y + pin_y_local
+                    # Transform to world coordinates (use centered switch position like modeling engine)
+                    # The modeling engine centers switches by adding switch_size/2, so we need to do the same
+                    switch_center_x = key_position.x + self.switch.get_spacing_x() / 2
+                    switch_center_y = key_position.y + self.switch.get_spacing_y() / 2
+                    
+                    world_x = switch_center_x + pin_x_local
+                    world_y = switch_center_y + pin_y_local
                     world_z = key_position.z + pin_z_local
                     
                     switch_pin = SwitchPin(

@@ -7,7 +7,7 @@ This will verify that the 3D output is now consistent.
 import os
 import sys
 import tempfile
-from solid import scad_render_to_file
+from solid2 import scad_render_to_file
 
 # Add libs directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'libs'))

@@ -5,9 +5,7 @@ Handles 3D geometry generation without dependencies on legacy code.
 """
 
 from typing import List, Dict, Any
-from solid import *
-from solid.utils import *
-from solid.objects import *
+from solid2 import *
 import math
 from math import cos, radians, sin, pi
 import numpy as np
