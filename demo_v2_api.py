@@ -231,11 +231,22 @@ def demonstrate_web_api_compatibility():
     print(f"   • Row Stagger: {matrix.rows_stagger}")
     print()
     
-    # Generate preview
+    # Generate preview data
     preview = keyboard_builder.generate_preview(config)
-    print(f"📱 Generated Preview: {len(preview)} rows x {len(preview[0])} cols")
-    print(f"   • First key position: ({preview[0][0]['x']:.1f}, {preview[0][0]['y']:.1f})")
-    print(f"   • Key size: {preview[0][0]['width']}x{preview[0][0]['height']}")
+    layout_data = preview['layout'] if isinstance(preview, dict) else preview
+    
+    print(f"📱 Generated Preview: {len(layout_data)} rows x {len(layout_data[0]) if layout_data else 0} cols")
+    if layout_data:
+        first_key = layout_data[0][0]
+        print(f"   • First key position: ({first_key['x']:.1f}, {first_key['y']:.1f})")
+        print(f"   • Key size: {first_key['width']}x{first_key['height']}")
+    
+    # Show routing information if available
+    if isinstance(preview, dict) and 'routing' in preview:
+        routing_data = preview['routing']
+        print(f"🔌 Routing Information: {len(routing_data)} routes")
+        for route in routing_data:
+            print(f"   • {route['name']} ({route['type']}): {len(route['points'])} points")
     print()
 
 def demonstrate_legacy_compatibility():

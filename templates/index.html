@@ -596,7 +596,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    renderPreview(result.layout);
+                    // Handle both old format (just layout) and new format (layout + routing)
+                    const layoutData = result.layout;
+                    const routingData = result.routing || [];
+                    
+                    renderPreview(layoutData, routingData);
                     const apiVersion = result.api_version || '1.0';
                     setStatus(`Preview updated successfully (API v${apiVersion})`, 'success');
                 } else {
@@ -618,7 +622,7 @@
             }
         }
         
-        function renderPreview(layout) {
+        function renderPreview(layout, routing = []) {
             const svg = document.getElementById('keyboard-svg');
             const keySize = 15;
             const margin = 20;
@@ -636,6 +640,18 @@
                 });
             });
             
+            // Also consider routing bounds if present
+            if (routing && routing.length > 0) {
+                routing.forEach(route => {
+                    route.points.forEach(point => {
+                        minX = Math.min(minX, point.x);
+                        maxX = Math.max(maxX, point.x);
+                        minY = Math.min(minY, point.y);
+                        maxY = Math.max(maxY, point.y);
+                    });
+                });
+            }
+            
             // Calculate SVG dimensions with padding
             const totalWidth = (maxX - minX) + margin * 2;
             const totalHeight = (maxY - minY) + margin * 2;
@@ -643,7 +659,43 @@
             svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
             svg.innerHTML = '';
             
-            // Draw keys
+            // Draw routing lines first (so they appear behind keys)
+            if (routing && routing.length > 0) {
+                routing.forEach(route => {
+                    if (route.points && route.points.length > 1) {
+                        // Create path for this route
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        
+                        // Build path data
+                        let pathData = '';
+                        route.points.forEach((point, index) => {
+                            const x = point.x - minX + margin;
+                            const y = point.y - minY + margin;
+                            
+                            if (index === 0) {
+                                pathData += `M ${x} ${y}`;
+                            } else {
+                                pathData += ` L ${x} ${y}`;
+                            }
+                        });
+                        
+                        path.setAttribute('d', pathData);
+                        path.setAttribute('stroke', route.color || '#666');
+                        path.setAttribute('stroke-width', route.width || 2);
+                        path.setAttribute('fill', 'none');
+                        path.setAttribute('opacity', '0.8');
+                        
+                        // Add route label
+                        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        title.textContent = `${route.name} (${route.type})`;
+                        path.appendChild(title);
+                        
+                        svg.appendChild(path);
+                    }
+                });
+            }
+            
+            // Draw keys on top of routing
             layout.forEach(row => {
                 row.forEach(key => {
                     // Normalize coordinates to start from margin
