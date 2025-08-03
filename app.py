@@ -235,12 +235,13 @@ def preview_keyboard_v2():
         # Create configuration using V2 API
         config = keyboard_builder.create_config_from_web_request(request_data)
         
-        # Generate preview
-        layout_data = keyboard_builder.generate_preview(config)
+        # Generate preview with routing data
+        preview_data = keyboard_builder.generate_preview(config)
         
         return jsonify({
             'success': True,
-            'layout': layout_data,
+            'layout': preview_data['layout'],
+            'routing': preview_data['routing'],
             'message': 'V2 Preview generated successfully',
             'api_version': '2.0'
         })
