@@ -4,6 +4,8 @@ import os
 import json
 import subprocess
 import tempfile
+import datetime
+import uuid
 from libs import printboard as kb
 from libs.switches import gamdias_lp as switch
 from libs.controllers import tinys2 as controller
@@ -31,6 +33,12 @@ app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(__file__), 'uploads')
 # Ensure directories exist
 os.makedirs(app.config['OUTPUT_DIR'], exist_ok=True)
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def generate_unique_keyboard_name(base_name: str = "keyboard") -> str:
+    """Generate a unique keyboard name with timestamp."""
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    short_uuid = str(uuid.uuid4())[:8]
+    return f"{base_name}_{timestamp}_{short_uuid}"
 
 @app.route('/')
 def index():
@@ -133,10 +141,29 @@ def generate_keyboard():
         else:
             success_msg += ' (STL generation requires OpenSCAD)'
         
+        # Create file information with action buttons
+        files_with_actions = []
+        for scad_file in scad_files:
+            files_with_actions.append({
+                'name': scad_file,
+                'type': 'scad',
+                'download_url': f'/api/keyboard/download/{scad_file}',
+                'action_label': 'Download SCAD'
+            })
+        for stl_file in stl_files:
+            files_with_actions.append({
+                'name': stl_file,
+                'type': 'stl', 
+                'download_url': f'/api/keyboard/download/{stl_file}',
+                'action_label': 'Open STL'
+            })
+        
         return jsonify({
             'success': True,
             'scad_files': scad_files,
             'stl_files': stl_files,
+            'files_with_actions': files_with_actions,
+            'keyboard_name': layout['name'],
             'message': success_msg
         })
         
@@ -287,10 +314,29 @@ def generate_keyboard_v2():
         else:
             success_msg += ' (STL generation requires OpenSCAD)'
         
+        # Create file information with action buttons
+        files_with_actions = []
+        for scad_file in scad_files:
+            files_with_actions.append({
+                'name': scad_file,
+                'type': 'scad',
+                'download_url': f'/api/keyboard/download/{scad_file}',
+                'action_label': 'Download SCAD'
+            })
+        for stl_file in stl_files:
+            files_with_actions.append({
+                'name': stl_file,
+                'type': 'stl', 
+                'download_url': f'/api/keyboard/download/{stl_file}',
+                'action_label': 'Open STL'
+            })
+        
         return jsonify({
             'success': True,
             'scad_files': scad_files,
             'stl_files': stl_files,
+            'files_with_actions': files_with_actions,
+            'keyboard_name': config.name,
             'message': success_msg,
             'api_version': '2.0',
             'metadata': result.metadata
@@ -477,7 +523,10 @@ def build_keyboard_config(config):
     """Build keyboard configuration from user input."""
     rows = config.get('rows', 5)
     cols = config.get('cols', 5)
-    name = config.get('name', 'custom_keyboard')
+    base_name = config.get('name', 'custom_keyboard')
+    
+    # Generate unique name for each keyboard
+    unique_name = generate_unique_keyboard_name(base_name)
     
     # Controller placement
     controller_lr = config.get('controllerPlacementLR', 'left')
@@ -513,7 +562,7 @@ def build_keyboard_config(config):
     
     # Build keyboard layout
     layout = {
-        "name": name,
+        "name": unique_name,
         "controller_placement": (controller_lr, controller_tb),
         "matrixes": {
             "main": matrix_config

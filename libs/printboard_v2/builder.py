@@ -6,12 +6,14 @@ Main builder class that orchestrates keyboard construction using clean separatio
 
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+import datetime
+import uuid
 
 from .config import KeyboardConfig, MatrixConfig
 from .switches import SwitchInterface, switch_registry
 from .controllers import ControllerInterface, controller_registry
 from .layout import LayoutPlanner, LayoutPlan
-from .routing import RoutePlanner
+from .modeling import ModelingEngine
 
 
 @dataclass
@@ -37,6 +39,13 @@ class KeyboardBuilder:
     def __init__(self):
         self.switch_registry = switch_registry
         self.controller_registry = controller_registry
+        self.modeling_engine = ModelingEngine()
+    
+    def _generate_unique_name(self, base_name: str = "keyboard") -> str:
+        """Generate a unique keyboard name with timestamp."""
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        short_uuid = str(uuid.uuid4())[:8]
+        return f"{base_name}_{timestamp}_{short_uuid}"
     
     def create_simple_keyboard(self, 
                              name: str,
@@ -46,10 +55,13 @@ class KeyboardBuilder:
                              controller_type: str = "tinys2") -> KeyboardResult:
         """Create a simple keyboard with basic grid layout."""
         
+        # Generate unique name
+        unique_name = self._generate_unique_name(name)
+        
         # Create configuration
         matrix_config = MatrixConfig(rows=rows, cols=cols)
         config = KeyboardConfig(
-            name=name,
+            name=unique_name,
             switch_type=switch_type,
             controller_type=controller_type,
             matrices={"main": matrix_config}
@@ -92,23 +104,18 @@ class KeyboardBuilder:
                        layout_plan: LayoutPlan,
                        switch: SwitchInterface,
                        controller: ControllerInterface) -> List[KeyboardPart]:
-        """Generate 3D parts for the keyboard."""
+        """Generate 3D parts for the keyboard using new modeling engine."""
         
-        # For V2, we'll use the legacy backend to generate actual 3D geometry
-        # but with our clean configuration interface
-        legacy_config = config.to_legacy_format()
-        
-        # Import legacy generation
-        from .. import printboard as kb
-        parts = kb.create_keyboard(legacy_config)
+        # Use the new modeling engine instead of legacy code
+        parts_data = self.modeling_engine.create_keyboard_parts(config)
         
         # Convert to V2 format
         v2_parts = []
-        for part in parts:
+        for part in parts_data:
             v2_parts.append(KeyboardPart(
                 name=part['name'],
                 shape=part['shape'],
-                part_type="matrix"  # Legacy only generates matrix parts
+                part_type="matrix"  # Currently only supporting matrix parts
             ))
         
         return v2_parts
@@ -123,7 +130,8 @@ class KeyboardBuilder:
         """Create configuration from web API request data."""
         
         # Extract basic parameters
-        name = request_data.get('name', 'custom_keyboard')
+        base_name = request_data.get('name', 'custom_keyboard')
+        unique_name = self._generate_unique_name(base_name)
         rows = request_data.get('rows', 5)
         cols = request_data.get('cols', 5)
         switch_type = request_data.get('switchType', 'gamdias_lp')
@@ -151,7 +159,7 @@ class KeyboardBuilder:
         
         # Create keyboard configuration
         config = KeyboardConfig(
-            name=name,
+            name=unique_name,
             switch_type=switch_type,
             controller_type=controller_type,
             controller_placement=(controller_lr, controller_tb),

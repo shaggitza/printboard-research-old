@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
 import importlib
+from solid import *
+from solid.utils import *
 
 
 @dataclass
@@ -46,13 +48,18 @@ class SwitchInterface(ABC):
         pass
     
     @abstractmethod
-    def create_body(self, **kwargs) -> Any:
-        """Create 3D body geometry for the switch."""
+    def get_3d_model(self, **kwargs) -> Any:
+        """Get 3D model geometry for the switch."""
         pass
     
     @abstractmethod
-    def create_empty(self, width: float = None, **kwargs) -> Any:
-        """Create empty switch for variable key sizes."""
+    def get_spacing_x(self) -> float:
+        """Get horizontal spacing between switches."""
+        pass
+    
+    @abstractmethod
+    def get_spacing_y(self) -> float:
+        """Get vertical spacing between switches.""" 
         pass
 
 
@@ -82,26 +89,46 @@ class GamdiasLPSwitch(SwitchInterface):
             ]
         )
     
-    def create_body(self, **kwargs) -> Any:
-        """Create switch body using legacy implementation."""
-        # Import legacy switch for backward compatibility
-        from ..switches import gamdias_lp as legacy_switch
-        return legacy_switch.switch_body
-    
-    def create_empty(self, width: float = None, **kwargs) -> Any:
-        """Create empty switch for variable key sizes."""
-        from ..switches import gamdias_lp as legacy_switch
-        from .. import printboard as kb
+    def get_3d_model(self, **kwargs) -> Any:
+        """Create switch body 3D model."""
+        # Create a simplified but representative switch body
+        # This is a basic box-like switch body for Gamdias LP
+        switch_body_x = 14.5
+        switch_body_y = 14.5
+        switch_body_height = 2.0
+        switch_total_height = 8.0
         
-        if width is None:
-            width = 18.5
+        # Main switch housing
+        main_body = cube([switch_body_x, switch_body_y, switch_body_height], center=True)
         
-        return kb.empty_sw(
-            legacy_switch, 
-            body=legacy_switch.switch_body, 
-            pins=legacy_switch.pins, 
-            x=width
+        # Switch stem area (where the key cap sits)
+        stem_size = 12.0
+        stem_height = 6.0
+        stem_body = up(switch_body_height/2 + stem_height/2)(
+            cube([stem_size, stem_size, stem_height], center=True)
         )
+        
+        # Create pin holes (simplified)
+        pin_hole_size = 1.0
+        pin1_hole = translate([-4.7, -5.0, 0])(
+            cylinder(d=pin_hole_size, h=switch_total_height, center=True)
+        )
+        pin2_hole = translate([5.0, 8.0, 0])(
+            cylinder(d=pin_hole_size, h=switch_total_height, center=True)
+        )
+        
+        # Combine all parts
+        switch_complete = main_body + stem_body - pin1_hole - pin2_hole
+        
+        return switch_complete
+    
+    def get_spacing_x(self) -> float:
+        """Get horizontal spacing between switches."""
+        return 18.5  # Standard key unit spacing
+    
+    def get_spacing_y(self) -> float:
+        """Get vertical spacing between switches."""
+        return 18.5  # Standard key unit spacing
 
 
 class SwitchRegistry:
