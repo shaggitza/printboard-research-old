@@ -46,48 +46,62 @@ class ModelingEngine:
         return matrix_union
     
     def _plan_switch_positions(self, matrix_config: MatrixConfig, switch: SwitchInterface) -> List[Dict[str, Any]]:
-        """Plan the positions of switches in the matrix."""
+        """Plan the positions of switches in the matrix using V1-compatible logic."""
         positions = []
         
-        switch_spacing_x = switch.get_spacing_x()
-        switch_spacing_y = switch.get_spacing_y()
+        switch_size_x = switch.get_spacing_x()  # 18.5 for gamdias_lp
+        switch_size_y = switch.get_spacing_y()  # 18.5 for gamdias_lp
+        
+        # V1-style position tracking
+        last_position_x_offset = 0
+        last_position_y_offset = {}
+        offset_x, offset_y = matrix_config.offset
         
         for row in range(matrix_config.rows):
             for col in range(matrix_config.cols):
-                # Calculate base position
-                x = col * switch_spacing_x
-                y = row * switch_spacing_y
+                # V1-style position calculation: accumulate positions + center offset
+                move_x = last_position_x_offset + offset_x + switch_size_x / 2
+                move_y = last_position_y_offset.get(col, 0) + offset_y + switch_size_y / 2
                 
-                # Apply row stagger if specified
+                # Apply staggering using V1 logic (subtract, not add)
                 if matrix_config.rows_stagger and row < len(matrix_config.rows_stagger):
-                    x += matrix_config.rows_stagger[row]
+                    stagger = matrix_config.rows_stagger[row]
+                    move_x -= stagger
                 
-                # Apply column stagger if specified  
                 if matrix_config.columns_stagger and col < len(matrix_config.columns_stagger):
-                    y += matrix_config.columns_stagger[col]
+                    stagger = matrix_config.columns_stagger[col]
+                    move_y -= stagger
                 
-                # Apply matrix offset
-                x += matrix_config.offset[0]
-                y += matrix_config.offset[1]
-                
-                # Calculate rotation (start with matrix rotation)
+                # Calculate rotation angles like V1
                 rotation = matrix_config.rotation_angle
                 
-                # Apply row angles if specified
                 if matrix_config.rows_angle and row < len(matrix_config.rows_angle):
                     rotation += matrix_config.rows_angle[row]
                 
-                # Apply column angles if specified
                 if matrix_config.columns_angle and col < len(matrix_config.columns_angle):
                     rotation += matrix_config.columns_angle[col]
                 
                 positions.append({
-                    'x': x,
-                    'y': y,
+                    'x': move_x,
+                    'y': move_y,
                     'rotation': rotation,
                     'row': row,
                     'col': col
                 })
+                
+                # Update position offsets for next element (V1 style)
+                last_position_x_offset += switch_size_x
+                if matrix_config.padding_keys and col < len(matrix_config.padding_keys):
+                    padding = matrix_config.padding_keys[col]
+                    last_position_x_offset += padding
+                
+                # Track column heights
+                if col not in last_position_y_offset:
+                    last_position_y_offset[col] = 0
+                last_position_y_offset[col] += switch_size_y
+            
+            # Reset for next row
+            last_position_x_offset = 0
         
         return positions
     
