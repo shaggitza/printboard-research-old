@@ -681,9 +681,10 @@
                         
                         path.setAttribute('d', pathData);
                         path.setAttribute('stroke', route.color || '#666');
-                        path.setAttribute('stroke-width', route.width || 2);
+                        path.setAttribute('stroke-width', route.width || 3);
                         path.setAttribute('fill', 'none');
-                        path.setAttribute('opacity', '0.8');
+                        path.setAttribute('opacity', '0.9');
+                        path.setAttribute('stroke-linecap', 'round');
                         
                         // Add route label
                         const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');

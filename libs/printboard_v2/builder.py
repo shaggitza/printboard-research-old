@@ -165,7 +165,7 @@ class KeyboardBuilder:
                 'type': tube_route.route.route_type,
                 'points': points_2d,
                 'color': color,
-                'width': 2.0
+                'width': 3.0
             })
         
         return routing_lines
