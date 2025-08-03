@@ -106,8 +106,8 @@ class KeyboardBuilder:
                        controller: ControllerInterface) -> List[KeyboardPart]:
         """Generate 3D parts for the keyboard using new modeling engine."""
         
-        # Use the new modeling engine instead of legacy code
-        parts_data = self.modeling_engine.create_keyboard_parts(config)
+        # Use the new modeling engine with layout plan
+        parts_data = self.modeling_engine.create_keyboard_parts(config, layout_plan)
         
         # Convert to V2 format
         v2_parts = []

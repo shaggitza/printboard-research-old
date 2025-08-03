@@ -11,9 +11,21 @@ from solid.objects import *
 import math
 from math import cos, radians, sin, pi
 import numpy as np
+from euclid3 import Point3
 
 from .config import KeyboardConfig, MatrixConfig
 from .switches import SwitchInterface
+
+
+def circle_points(radius: float, segments: int = 50) -> List[List[float]]:
+    """Generate points for a circle cross-section."""
+    points = []
+    for i in range(segments):
+        angle = 2 * pi * i / segments
+        x = radius * cos(angle)
+        y = radius * sin(angle)
+        points.append([x, y])
+    return points
 
 
 class ModelingEngine:
@@ -105,15 +117,111 @@ class ModelingEngine:
         
         return positions
     
-    def generate_routing_tubes(self, matrix_config: MatrixConfig, switch: SwitchInterface) -> Any:
-        """Generate 3D routing tubes for connections."""
-        # For now, return empty geometry - routing is complex and can be added later
-        # This allows V2 to work without the complex routing logic from V1
-        return union()()
+    def generate_routing_tubes(self, layout_plan, switch: SwitchInterface, controller) -> Any:
+        """Generate 3D routing tubes for connections using the new V2 routing algorithm."""
+        from .routing import RoutePlanner
+        
+        # Create route planner and plan routes
+        planner = RoutePlanner(controller, switch)
+        route_plan = planner.plan_routes(layout_plan)
+        
+        # Generate 3D tubes from routes
+        tubes_union = union()()
+        
+        for route in route_plan.routes:
+            if len(route.points) < 2:
+                continue
+                
+            # Create tube geometry
+            tube_geometry = self._create_tube_from_points(route.points, route.wire_radius)
+            tubes_union += tube_geometry
+        
+        return tubes_union
     
-    def create_keyboard_parts(self, config: KeyboardConfig) -> List[Dict[str, Any]]:
+    def _create_tube_from_points(self, points: List, wire_radius: float) -> Any:
+        """Create a 3D tube from a series of points."""
+        if len(points) < 2:
+            return union()()
+        
+        # Create circular cross-section for the wire
+        wire_circle = circle_points(wire_radius)
+        
+        # Convert RoutePoint objects to Point3 objects for SolidPython
+        path_points = []
+        for point in points:
+            # Handle both RoutePoint objects and tuples
+            if hasattr(point, 'x'):
+                path_points.append(Point3(point.x, point.y, point.z))
+            else:
+                path_points.append(Point3(*point))
+        
+        # Create smooth path if we have more than 2 points
+        if len(path_points) > 2:
+            path_points = self._smooth_path(path_points)
+        
+        # Extrude the circle along the path
+        try:
+            return extrude_along_path(wire_circle, path_points)
+        except:
+            # Fallback to simple cylinder connections if extrude_along_path fails
+            tube_union = union()()
+            for i in range(len(path_points) - 1):
+                p1, p2 = path_points[i], path_points[i + 1]
+                # Calculate distance and orientation between points
+                dx, dy, dz = p2.x - p1.x, p2.y - p1.y, p2.z - p1.z
+                length = math.sqrt(dx*dx + dy*dy + dz*dz)
+                
+                if length > 0:
+                    # Create cylinder segment
+                    cyl = cylinder(r=wire_radius, h=length, center=True)
+                    
+                    # Rotate and translate to connect the points
+                    if dz != 0 or dx != 0 or dy != 0:
+                        # Calculate rotation angles
+                        pitch = math.atan2(math.sqrt(dx*dx + dy*dy), dz)
+                        yaw = math.atan2(dy, dx) if dx != 0 or dy != 0 else 0
+                        
+                        cyl = rotate([math.degrees(pitch), 0, math.degrees(yaw)])(cyl)
+                    
+                    # Translate to midpoint
+                    mid_x, mid_y, mid_z = (p1.x + p2.x)/2, (p1.y + p2.y)/2, (p1.z + p2.z)/2
+                    cyl = translate([mid_x, mid_y, mid_z])(cyl)
+                    
+                    tube_union += cyl
+            
+            return tube_union
+    
+    def _smooth_path(self, path_points: List, num_interpolated: int = 10) -> List:
+        """Create a smooth path through the given points using simple linear interpolation."""
+        if len(path_points) <= 2:
+            return path_points
+        
+        smooth_points = []
+        
+        for i in range(len(path_points) - 1):
+            p1, p2 = path_points[i], path_points[i + 1]
+            
+            # Add the current point
+            smooth_points.append(p1)
+            
+            # Add interpolated points
+            for j in range(1, num_interpolated):
+                t = j / num_interpolated
+                interp_x = p1.x + t * (p2.x - p1.x)
+                interp_y = p1.y + t * (p2.y - p1.y)
+                interp_z = p1.z + t * (p2.z - p1.z)
+                smooth_points.append(Point3(interp_x, interp_y, interp_z))
+        
+        # Add the final point
+        smooth_points.append(path_points[-1])
+        
+        return smooth_points
+    
+    def create_keyboard_parts(self, config: KeyboardConfig, layout_plan=None) -> List[Dict[str, Any]]:
         """Create keyboard parts as 3D cavity geometry for switch mounting."""
         from .switches import switch_registry
+        from .controllers import controller_registry
+        from .layout import LayoutPlanner
         
         parts = []
         
@@ -122,12 +230,22 @@ class ModelingEngine:
         if not switch:
             raise ValueError(f"Unknown switch type: {config.switch_type}")
         
+        # Get the controller type
+        controller = controller_registry.get(config.controller_type)
+        if not controller:
+            raise ValueError(f"Unknown controller type: {config.controller_type}")
+        
+        # Generate layout plan if not provided
+        if layout_plan is None:
+            planner = LayoutPlanner(switch)
+            layout_plan = planner.plan_layout(config)
+        
         # Generate matrix parts (switch mounting cavities)
         for matrix_name, matrix_config in config.matrices.items():
             matrix_geometry = self.generate_matrix_3d(matrix_config, switch, matrix_name)
             
-            # Add routing tubes
-            routing_geometry = self.generate_routing_tubes(matrix_config, switch)
+            # Add routing tubes using the new algorithm
+            routing_geometry = self.generate_routing_tubes(layout_plan, switch, controller)
             
             # Combine matrix cavities and routing
             combined_geometry = matrix_geometry + routing_geometry
