@@ -10,7 +10,7 @@ from libs.printboard_v2 import KeyboardBuilder, KeyboardConfig, MatrixConfig
 from libs.printboard_v2.builder import keyboard_builder
 from libs.printboard_v2.switches import switch_registry
 from libs.printboard_v2.controllers import controller_registry
-from solid2 import scad_render_to_file
+from solid import scad_render_to_file
 import json
 from pprint import pprint
 

@@ -8,7 +8,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
 import importlib
-from solid2 import *
+from solid import *
+from solid.utils import *
 from math import cos, sin, pi, tau
 import glob
 
