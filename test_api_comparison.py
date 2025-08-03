@@ -142,7 +142,8 @@ def test_scad_output():
         # Generate V1 SCAD
         print("Generating V1 SCAD...")
         v1_config = create_v1_config()
-        v1_keyboard = kb.create_keyboard(v1_config)
+        v1_keyboard_parts = kb.create_keyboard(v1_config)
+        v1_keyboard = v1_keyboard_parts[0]['shape']  # Get the matrix shape
         v1_scad_file = os.path.join(temp_dir, "v1_test.scad")
         scad_render_to_file(v1_keyboard, v1_scad_file, file_header='$fn = 50;')
         
