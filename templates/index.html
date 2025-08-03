@@ -296,6 +296,27 @@
                         </div>
                         
                         <div class="form-group">
+                            <label for="api-version">API Version</label>
+                            <select id="api-version" name="apiVersion" onchange="onApiVersionChange()">
+                                <option value="v1">V1 - Legacy API (Stable)</option>
+                                <option value="v2">V2 - Modern API (Clean Architecture)</option>
+                            </select>
+                            <small style="color: #6c757d; margin-top: 5px; display: block;">
+                                V2 API provides better architecture and type safety. V1 is fully backward compatible.
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label style="display: flex; align-items: center; cursor: pointer;">
+                                <input type="checkbox" id="auto-advance" checked style="margin-right: 8px;">
+                                Auto-advance to next tab after completion
+                            </label>
+                            <small style="color: #6c757d; margin-top: 5px; display: block;">
+                                Automatically navigate to the next step when an operation completes successfully.
+                            </small>
+                        </div>
+                        
+                        <div class="form-group">
                             <label for="preset">Layout Preset</label>
                             <select id="preset" name="preset" onchange="loadPreset()">
                                 <option value="">Custom Layout</option>
@@ -478,11 +499,49 @@
         function switchTab(tabName) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            if (event && event.target) {
+                event.target.classList.add('active');
+            } else {
+                // When called programmatically, find the tab button by data attribute or text
+                const tabButton = Array.from(document.querySelectorAll('.tab')).find(tab => 
+                    tab.textContent.toLowerCase().trim() === tabName.toLowerCase().trim()
+                );
+                if (tabButton) {
+                    tabButton.classList.add('active');
+                }
+            }
             
             // Update tab content
             document.querySelectorAll('.tab-pane').forEach(pane => pane.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
+        }
+        
+        function autoAdvanceToTab(tabName, delay = 1500) {
+            const autoAdvanceEnabled = document.getElementById('auto-advance').checked;
+            if (!autoAdvanceEnabled) return;
+            
+            setTimeout(() => {
+                switchTab(tabName);
+                // Add a visual indication of the auto-advance
+                setStatus(`Automatically advanced to ${tabName.charAt(0).toUpperCase() + tabName.slice(1)} tab`, 'success');
+            }, delay);
+        }
+        
+        function getApiVersion() {
+            return document.getElementById('api-version').value;
+        }
+        
+        function getApiPath(endpoint) {
+            const version = getApiVersion();
+            if (version === 'v2') {
+                return `/api/v2/keyboard/${endpoint}`;
+            }
+            return `/api/keyboard/${endpoint}`;
+        }
+        
+        function onApiVersionChange() {
+            const version = getApiVersion();
+            setStatus(`Switched to API ${version.toUpperCase()}`, 'info');
         }
         
         function getFormData() {
@@ -507,6 +566,10 @@
                     config[key] = value;
                 }
             }
+            
+            // Add API version to config
+            config.apiVersion = getApiVersion();
+            
             return config;
         }
         
@@ -521,7 +584,8 @@
                 setStatus('Generating preview...', 'info');
                 currentConfig = getFormData();
                 
-                const response = await fetch('/api/keyboard/preview', {
+                const apiPath = getApiPath('preview');
+                const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -533,7 +597,11 @@
                 
                 if (result.success) {
                     renderPreview(result.layout);
-                    setStatus('Preview updated successfully', 'success');
+                    const apiVersion = result.api_version || '1.0';
+                    setStatus(`Preview updated successfully (API v${apiVersion})`, 'success');
+                    
+                    // Auto-advance to Preview tab
+                    autoAdvanceToTab('preview');
                 } else {
                     setStatus(`Preview error: ${result.error}`, 'error');
                 }
@@ -614,8 +682,9 @@
                 document.getElementById('generate-btn').disabled = true;
                 
                 const config = getFormData();
+                const apiPath = getApiPath('generate');
                 
-                const response = await fetch('/api/keyboard/generate', {
+                const response = await fetch(apiPath, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -631,9 +700,10 @@
                         ? `<p><strong>STL Files:</strong> ${result.stl_files.join(', ')}</p>`
                         : `<p><strong>STL Generation:</strong> ${result.message.includes('requires OpenSCAD') ? 'Failed - OpenSCAD not available' : 'Skipped'}</p>`;
                     
+                    const apiVersion = result.api_version || '1.0';
                     resultsEl.innerHTML = `
                         <div style="background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 10px;">
-                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete!</h4>
+                            <h4 style="color: #155724; margin-bottom: 10px;">✅ Generation Complete! (API v${apiVersion})</h4>
                             <p><strong>SCAD Files:</strong> ${result.scad_files.join(', ')}</p>
                             ${stlStatus}
                             <p style="margin-top: 10px; font-size: 14px; color: #6c757d;">
@@ -643,6 +713,9 @@
                     `;
                     setStatus(result.message, 'success');
                     refreshFiles();
+                    
+                    // Auto-advance to Files tab
+                    autoAdvanceToTab('files');
                 } else {
                     setStatus(`Generation error: ${result.error}`, 'error');
                 }
