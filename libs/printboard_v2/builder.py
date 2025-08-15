@@ -120,11 +120,55 @@ class KeyboardBuilder:
         
         return v2_parts
     
-    def generate_preview(self, config: KeyboardConfig) -> List[List[Dict[str, Any]]]:
-        """Generate 2D preview data for the UI."""
+    def generate_preview(self, config: KeyboardConfig) -> Dict[str, Any]:
+        """Generate 2D preview data for the UI including simple routing information."""
         switch = self.switch_registry.get(config.switch_type)
+        controller = self.controller_registry.get(config.controller_type)
         planner = LayoutPlanner(switch)
-        return planner.generate_preview_data(config)
+        
+        # Generate layout and routing
+        layout_plan = planner.plan_layout(config)
+        
+        # Generate simple routing information
+        from .routing import RoutePlanner
+        route_planner = RoutePlanner(controller)
+        route_plan = route_planner.plan_routes(layout_plan)
+        
+        # Get layout data in the old format for compatibility
+        layout_data = planner.generate_preview_data(config)
+        
+        # Generate simple routing data for 2D preview
+        routing_data = self._generate_simple_routing_preview(route_plan)
+        
+        return {
+            'layout': layout_data,
+            'routing': routing_data
+        }
+    
+    def _generate_simple_routing_preview(self, route_plan) -> List[Dict[str, Any]]:
+        """Generate simple routing data for 2D preview visualization."""
+        routing_lines = []
+        
+        # Convert routes to simple 2D lines with colors
+        colors = ['#ff0000', '#00ff00', '#0000ff', '#ff00ff', '#ffff00', '#00ffff']
+        
+        for i, route in enumerate(route_plan.routes):
+            color = colors[i % len(colors)]
+            
+            # Convert 3D points to 2D line segments
+            points_2d = []
+            for point in route.points:
+                points_2d.append({'x': point.x, 'y': point.y})
+            
+            routing_lines.append({
+                'name': route.name,
+                'type': route.route_type,
+                'points': points_2d,
+                'color': color,
+                'width': 2.0
+            })
+        
+        return routing_lines
     
     def create_config_from_web_request(self, request_data: Dict[str, Any]) -> KeyboardConfig:
         """Create configuration from web API request data."""

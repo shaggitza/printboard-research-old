@@ -248,6 +248,74 @@
             font-size: 12px;
         }
         
+        /* Folder structure styles */
+        .generation-folder {
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .folder-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #e9ecef;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+        
+        .folder-header:hover {
+            background: #e9ecef;
+        }
+        
+        .folder-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .folder-icon {
+            font-size: 18px;
+        }
+        
+        .folder-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .folder-summary {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 2px;
+        }
+        
+        .folder-toggle {
+            font-size: 14px;
+            color: #6c757d;
+            transition: transform 0.2s ease;
+        }
+        
+        .folder-contents {
+            padding: 0;
+        }
+        
+        .folder-contents .file-item {
+            margin: 0;
+            border: none;
+            border-radius: 0;
+            border-bottom: 1px solid #f1f3f4;
+            background: white;
+        }
+        
+        .folder-contents .file-item:last-child {
+            border-bottom: none;
+        }
+        
         .loading {
             display: none;
             text-align: center;
@@ -295,16 +363,7 @@
                             <input type="text" id="name" name="name" value="my_keyboard" required>
                         </div>
                         
-                        <div class="form-group">
-                            <label for="api-version">API Version</label>
-                            <select id="api-version" name="apiVersion" onchange="onApiVersionChange()">
-                                <option value="v1">V1 - Legacy API (Stable)</option>
-                                <option value="v2">V2 - Modern API (Clean Architecture)</option>
-                            </select>
-                            <small style="color: #6c757d; margin-top: 5px; display: block;">
-                                V2 API provides better architecture and type safety. V1 is fully backward compatible.
-                            </small>
-                        </div>
+
                         
                         <div class="form-group">
                             <label style="display: flex; align-items: center; cursor: pointer;">
@@ -415,7 +474,7 @@
                             <input type="text" id="padding-keys" name="paddingKeys" placeholder="e.g., 5,5,5,5,5">
                         </div>
                         
-                        <button type="button" class="btn btn-primary" onclick="updatePreviewWithAdvance()">
+                        <button type="button" class="btn btn-primary" onclick="updatePreview()">
                             Update Preview
                         </button>
                     </form>
@@ -528,20 +587,11 @@
         }
         
         function getApiVersion() {
-            return document.getElementById('api-version').value;
+            return 'v2';
         }
         
         function getApiPath(endpoint) {
-            const version = getApiVersion();
-            if (version === 'v2') {
-                return `/api/v2/keyboard/${endpoint}`;
-            }
-            return `/api/keyboard/${endpoint}`;
-        }
-        
-        function onApiVersionChange() {
-            const version = getApiVersion();
-            setStatus(`Switched to API ${version.toUpperCase()}`, 'info');
+            return `/api/v2/keyboard/${endpoint}`;
         }
         
         function getFormData() {
@@ -596,7 +646,11 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    renderPreview(result.layout);
+                    // Handle both old format (just layout) and new format (layout + routing)
+                    const layoutData = result.layout;
+                    const routingData = result.routing || [];
+                    
+                    renderPreview(layoutData, routingData);
                     const apiVersion = result.api_version || '1.0';
                     setStatus(`Preview updated successfully (API v${apiVersion})`, 'success');
                 } else {
@@ -618,7 +672,7 @@
             }
         }
         
-        function renderPreview(layout) {
+        function renderPreview(layout, routing = []) {
             const svg = document.getElementById('keyboard-svg');
             const keySize = 15;
             const margin = 20;
@@ -636,6 +690,18 @@
                 });
             });
             
+            // Also consider routing bounds if present
+            if (routing && routing.length > 0) {
+                routing.forEach(route => {
+                    route.points.forEach(point => {
+                        minX = Math.min(minX, point.x);
+                        maxX = Math.max(maxX, point.x);
+                        minY = Math.min(minY, point.y);
+                        maxY = Math.max(maxY, point.y);
+                    });
+                });
+            }
+            
             // Calculate SVG dimensions with padding
             const totalWidth = (maxX - minX) + margin * 2;
             const totalHeight = (maxY - minY) + margin * 2;
@@ -643,7 +709,44 @@
             svg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
             svg.innerHTML = '';
             
-            // Draw keys
+            // Draw routing lines first (so they appear behind keys)
+            if (routing && routing.length > 0) {
+                routing.forEach(route => {
+                    if (route.points && route.points.length > 1) {
+                        // Create path for this route
+                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                        
+                        // Build path data
+                        let pathData = '';
+                        route.points.forEach((point, index) => {
+                            const x = point.x - minX + margin;
+                            const y = point.y - minY + margin;
+                            
+                            if (index === 0) {
+                                pathData += `M ${x} ${y}`;
+                            } else {
+                                pathData += ` L ${x} ${y}`;
+                            }
+                        });
+                        
+                        path.setAttribute('d', pathData);
+                        path.setAttribute('stroke', route.color || '#666');
+                        path.setAttribute('stroke-width', route.width || 3);
+                        path.setAttribute('fill', 'none');
+                        path.setAttribute('opacity', '0.9');
+                        path.setAttribute('stroke-linecap', 'round');
+                        
+                        // Add route label
+                        const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+                        title.textContent = `${route.name} (${route.type})`;
+                        path.appendChild(title);
+                        
+                        svg.appendChild(path);
+                    }
+                });
+            }
+            
+            // Draw keys on top of routing
             layout.forEach(row => {
                 row.forEach(key => {
                     // Normalize coordinates to start from margin
@@ -715,11 +818,15 @@
                     if (result.files_with_actions && result.files_with_actions.length > 0) {
                         fileActionsHtml = '<div style="margin-top: 15px;"><h5>Generated Files:</h5>';
                         result.files_with_actions.forEach(file => {
-                            const buttonStyle = file.type === 'stl' 
-                                ? 'background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;'
-                                : 'background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;';
-                            
-                            fileActionsHtml += `<a href="${file.download_url}" style="${buttonStyle}" target="_blank">${file.action_label}</a>`;
+                            if (file.type === 'stl') {
+                                // STL files get a button that opens the viewer
+                                const buttonStyle = 'background: #28a745; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;';
+                                fileActionsHtml += `<button style="${buttonStyle}" onclick="viewSTL('${file.name}')">${file.action_label}</button>`;
+                            } else {
+                                // SCAD files get download links
+                                const buttonStyle = 'background: #007bff; color: white; border: none; padding: 8px 12px; border-radius: 4px; margin-right: 10px; margin-bottom: 5px; cursor: pointer; text-decoration: none; display: inline-block;';
+                                fileActionsHtml += `<a href="${file.download_url}" style="${buttonStyle}" target="_blank">${file.action_label}</a>`;
+                            }
                         });
                         fileActionsHtml += '</div>';
                     }
@@ -762,7 +869,7 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    renderFilesList(result.files);
+                    renderFilesList(result.generations);
                 } else {
                     setStatus(`Files error: ${result.error}`, 'error');
                 }
@@ -771,10 +878,10 @@
             }
         }
         
-        function renderFilesList(files) {
+        function renderFilesList(generations) {
             const listEl = document.getElementById('files-list');
             
-            if (files.length === 0) {
+            if (generations.length === 0) {
                 listEl.innerHTML = `
                     <p style="text-align: center; color: #6c757d;">
                         No files generated yet. Use the Generate tab to create 3D models.
@@ -783,26 +890,57 @@
                 return;
             }
             
-            listEl.innerHTML = files.map(file => `
-                <div class="file-item">
-                    <div class="file-info">
-                        <div class="file-name">${file.name}</div>
-                        <div class="file-details">
-                            ${file.type} • ${formatFileSize(file.size)} • ${formatDate(file.created)}
+            listEl.innerHTML = generations.map(generation => `
+                <div class="generation-folder">
+                    <div class="folder-header" onclick="toggleFolder('${generation.name}')">
+                        <div class="folder-info">
+                            <span class="folder-icon">📁</span>
+                            <div class="folder-details">
+                                <div class="folder-name">${generation.name}</div>
+                                <div class="folder-summary">
+                                    ${generation.files.length} files • ${formatFileSize(generation.total_size)} • ${formatDate(generation.created)}
+                                </div>
+                            </div>
                         </div>
+                        <span class="folder-toggle" id="toggle-${generation.name}">▼</span>
                     </div>
-                    <div class="file-actions">
-                        ${file.name.endsWith('.stl') ? `
-                            <button class="btn btn-secondary btn-sm" onclick="viewSTL('${file.name}')">
-                                👁️ View 3D
-                            </button>
-                        ` : ''}
-                        <button class="btn btn-primary btn-sm" onclick="downloadFile('${file.name}')">
-                            📥 Download
-                        </button>
+                    <div class="folder-contents" id="folder-${generation.name}" style="display: block;">
+                        ${generation.files.map(file => `
+                            <div class="file-item">
+                                <div class="file-info">
+                                    <div class="file-name">${file.name}</div>
+                                    <div class="file-details">
+                                        ${file.type} • ${formatFileSize(file.size)}
+                                    </div>
+                                </div>
+                                <div class="file-actions">
+                                    ${file.name.endsWith('.stl') ? `
+                                        <button class="btn btn-secondary btn-sm" onclick="viewSTL('${file.name}')">
+                                            👁️ View 3D
+                                        </button>
+                                    ` : ''}
+                                    <button class="btn btn-primary btn-sm" onclick="downloadFile('${file.name}')">
+                                        📥 Download
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
                     </div>
                 </div>
             `).join('');
+        }
+        
+        function toggleFolder(folderName) {
+            const folderContents = document.getElementById(`folder-${folderName}`);
+            const toggleIcon = document.getElementById(`toggle-${folderName}`);
+            
+            if (folderContents.style.display === 'none') {
+                folderContents.style.display = 'block';
+                toggleIcon.textContent = '▼';
+            } else {
+                folderContents.style.display = 'none';
+                toggleIcon.textContent = '▶';
+            }
         }
         
         function downloadFile(filename) {
@@ -857,28 +995,6 @@
             updatePreview();
             refreshFiles();
         });
-        
-        async function loadPreset() {
-            const preset = document.getElementById('preset').value;
-            if (!preset) return;
-            
-            try {
-                const response = await fetch('/api/keyboard/presets');
-                const result = await response.json();
-                
-                if (result.success && result.presets[preset]) {
-                    const presetData = result.presets[preset];
-                    document.getElementById('rows').value = presetData.rows;
-                    document.getElementById('cols').value = presetData.cols;
-                    document.getElementById('name').value = presetData.name.toLowerCase().replace(/\s+/g, '_');
-                    
-                    updatePreview();
-                    setStatus(`Loaded preset: ${presetData.name}`, 'success');
-                }
-            } catch (error) {
-                setStatus(`Error loading preset: ${error.message}`, 'error');
-            }
-        }
     </script>
 </body>
 </html>
