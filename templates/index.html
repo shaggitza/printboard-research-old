@@ -474,7 +474,7 @@
                             <input type="text" id="padding-keys" name="paddingKeys" placeholder="e.g., 5,5,5,5,5">
                         </div>
                         
-                        <button type="button" class="btn btn-primary" onclick="updatePreviewWithAdvance()">
+                        <button type="button" class="btn btn-primary" onclick="updatePreview()">
                             Update Preview
                         </button>
                     </form>
@@ -996,28 +996,6 @@
             updatePreview();
             refreshFiles();
         });
-        
-        async function loadPreset() {
-            const preset = document.getElementById('preset').value;
-            if (!preset) return;
-            
-            try {
-                const response = await fetch('/api/keyboard/presets');
-                const result = await response.json();
-                
-                if (result.success && result.presets[preset]) {
-                    const presetData = result.presets[preset];
-                    document.getElementById('rows').value = presetData.rows;
-                    document.getElementById('cols').value = presetData.cols;
-                    document.getElementById('name').value = presetData.name.toLowerCase().replace(/\s+/g, '_');
-                    
-                    updatePreview();
-                    setStatus(`Loaded preset: ${presetData.name}`, 'success');
-                }
-            } catch (error) {
-                setStatus(`Error loading preset: ${error.message}`, 'error');
-            }
-        }
     </script>
 </body>
 </html>
