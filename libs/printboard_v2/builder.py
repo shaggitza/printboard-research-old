@@ -107,7 +107,7 @@ class KeyboardBuilder:
         """Generate 3D parts for the keyboard using new modeling engine."""
         
         # Use the new modeling engine instead of legacy code
-        parts_data = self.modeling_engine.create_keyboard_parts(config, layout_plan)
+        parts_data = self.modeling_engine.create_keyboard_parts(config)
         
         # Convert to V2 format
         v2_parts = []
@@ -121,7 +121,7 @@ class KeyboardBuilder:
         return v2_parts
     
     def generate_preview(self, config: KeyboardConfig) -> Dict[str, Any]:
-        """Generate 2D preview data for the UI including routing information."""
+        """Generate 2D preview data for the UI including simple routing information."""
         switch = self.switch_registry.get(config.switch_type)
         controller = self.controller_registry.get(config.controller_type)
         planner = LayoutPlanner(switch)
@@ -129,43 +129,43 @@ class KeyboardBuilder:
         # Generate layout and routing
         layout_plan = planner.plan_layout(config)
         
-        # Generate routing information
+        # Generate simple routing information
         from .routing import RoutePlanner
         route_planner = RoutePlanner(controller)
-        route_plan = route_planner.plan_routes(layout_plan, switch)
+        route_plan = route_planner.plan_routes(layout_plan)
         
         # Get layout data in the old format for compatibility
         layout_data = planner.generate_preview_data(config)
         
-        # Generate routing data for 2D preview
-        routing_data = self._generate_routing_preview_data(route_plan, layout_plan)
+        # Generate simple routing data for 2D preview
+        routing_data = self._generate_simple_routing_preview(route_plan)
         
         return {
             'layout': layout_data,
             'routing': routing_data
         }
     
-    def _generate_routing_preview_data(self, route_plan, layout_plan) -> List[Dict[str, Any]]:
-        """Generate routing data for 2D preview visualization."""
+    def _generate_simple_routing_preview(self, route_plan) -> List[Dict[str, Any]]:
+        """Generate simple routing data for 2D preview visualization."""
         routing_lines = []
         
-        # Convert tube routes to 2D lines with colors
+        # Convert routes to simple 2D lines with colors
         colors = ['#ff0000', '#00ff00', '#0000ff', '#ff00ff', '#ffff00', '#00ffff']
         
-        for i, tube_route in enumerate(route_plan.tube_routes):
+        for i, route in enumerate(route_plan.routes):
             color = colors[i % len(colors)]
             
             # Convert 3D points to 2D line segments
             points_2d = []
-            for point in tube_route.route.points:
+            for point in route.points:
                 points_2d.append({'x': point.x, 'y': point.y})
             
             routing_lines.append({
-                'name': tube_route.route.name,
-                'type': tube_route.route.route_type,
+                'name': route.name,
+                'type': route.route_type,
                 'points': points_2d,
                 'color': color,
-                'width': 3.0
+                'width': 2.0
             })
         
         return routing_lines

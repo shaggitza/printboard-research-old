@@ -105,77 +105,29 @@ class ModelingEngine:
         
         return positions
     
-    def generate_routing_tubes(self, layout_plan, switch: SwitchInterface, controller) -> Any:
+    def generate_routing_tubes(self, matrix_config: MatrixConfig, switch: SwitchInterface) -> Any:
         """Generate 3D routing tubes for connections."""
-        from .routing import RoutePlanner
-        from .layout import LayoutPlan
-        from .controllers import ControllerInterface
-        from solid import union, translate, cylinder, hull
-        
-        # Plan the routes
-        route_planner = RoutePlanner(controller)
-        route_plan = route_planner.plan_routes(layout_plan, switch)
-        
-        # Generate tube geometry for each route
-        tubes_union = union()()
-        
-        for tube_route in route_plan.tube_routes:
-            # Create tube geometry
-            tube_geometry = self._create_tube_geometry(tube_route)
-            tubes_union += tube_geometry
-        
-        return tubes_union
+        # For now, return empty geometry - routing is complex and can be added later
+        # This allows V2 to work without the complex routing logic from V1
+        return union()()
     
-    def _create_tube_geometry(self, tube_route) -> Any:
-        """Create 3D tube geometry for a single route."""
-        from solid import cylinder, hull, union, translate
-        
-        # Create tube segments between consecutive points
-        tube_union = union()()
-        
-        points = tube_route.route.points
-        radius = tube_route.tube_radius
-        
-        for i in range(len(points) - 1):
-            p1 = points[i]
-            p2 = points[i + 1]
-            
-            # Create tube segment between p1 and p2
-            # Use hull of two cylinders to create smooth tube
-            cyl1 = translate([p1.x, p1.y, p1.z])(
-                cylinder(r=radius, h=0.1)
-            )
-            cyl2 = translate([p2.x, p2.y, p2.z])(
-                cylinder(r=radius, h=0.1)
-            )
-            
-            segment = hull()(cyl1, cyl2)
-            tube_union += segment
-        
-        return tube_union
-    
-    def create_keyboard_parts(self, config: KeyboardConfig, layout_plan) -> List[Dict[str, Any]]:
+    def create_keyboard_parts(self, config: KeyboardConfig) -> List[Dict[str, Any]]:
         """Create keyboard parts as 3D cavity geometry for switch mounting."""
         from .switches import switch_registry
-        from .controllers import controller_registry
         
         parts = []
         
-        # Get the switch and controller types
+        # Get the switch type
         switch = switch_registry.get(config.switch_type)
         if not switch:
             raise ValueError(f"Unknown switch type: {config.switch_type}")
-            
-        controller = controller_registry.get(config.controller_type)
-        if not controller:
-            raise ValueError(f"Unknown controller type: {config.controller_type}")
         
         # Generate matrix parts (switch mounting cavities)
         for matrix_name, matrix_config in config.matrices.items():
             matrix_geometry = self.generate_matrix_3d(matrix_config, switch, matrix_name)
             
-            # Add routing tubes using the complete layout plan
-            routing_geometry = self.generate_routing_tubes(layout_plan, switch, controller)
+            # Add routing tubes
+            routing_geometry = self.generate_routing_tubes(matrix_config, switch)
             
             # Combine matrix cavities and routing
             combined_geometry = matrix_geometry + routing_geometry
